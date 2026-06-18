@@ -1,0 +1,59 @@
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { ReportService } from './report.service';
+import { CreateReportDto } from './report.dto';
+import { CurrentUser } from 'utils/decorators/user.decorator';
+import { Auth } from 'utils/guards/auth.guard';
+import { FileUpload } from 'utils/decorators/file-uploader.decorator';
+import { GetFile } from 'utils/decorators/get-file.decorator';
+import { USER_ROLES } from 'utils/enums/user';
+import sendResponse from 'utils/helper/sendResponse';
+
+@Controller('report')
+export class ReportController {
+  constructor(private readonly reportService: ReportService) { }
+
+  @Post()
+  @Auth()
+  @FileUpload({
+    fields: [{
+      fieldName: 'attachments',
+      maxCount: 3,
+
+    }]
+  })
+  createReport(@Body() data: any, @CurrentUser() user: any, @GetFile('attachments') attachments: string[]) {
+    data.attachments = attachments
+    return this.reportService.createReport(user.id, data);
+  }
+
+  @Get()
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  async getReports(@Query() query: any) {
+    const data = await this.reportService.getReports(query) as any
+    return sendResponse({
+      statusCode: 200,
+      data: data.reports,
+      message: 'Reports fetched successfully',
+      success: true,
+      pagination: data.pagination,
+    });
+  }
+
+  @Get(':reportId')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  async getSingleReport(@Param('reportId') reportId: string) {
+    return this.reportService.getSingleReport(reportId);
+  }
+
+  @Patch(':reportId')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  async updateReport(@Param('reportId') reportId: string, @Body() data: any) {
+    return this.reportService.updateReport(reportId, data);
+  }
+
+  @Delete(':reportId')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  async deleteReport(@Param('reportId') reportId: string) {
+    return this.reportService.deleteReport(reportId);
+  }
+}

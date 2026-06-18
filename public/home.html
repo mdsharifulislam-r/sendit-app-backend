@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>NESTU Terminal</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #05070c;
+            color: #00ff9c;
+            font-family: Consolas, monospace;
+            overflow: hidden;
+        }
+
+        #particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        #terminal {
+            position: relative;
+            z-index: 2;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        /* each line */
+        .line {
+            margin: 3px 0;
+            white-space: pre-wrap;
+        }
+
+        /* input row */
+        .input-line {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+
+        .input-line span {
+            margin-right: 8px;
+        }
+
+        .input-line input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #00ff9c;
+            font-family: inherit;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="particles"></canvas>
+
+    <div id="terminal"></div>
+
+    <script>
+
+        const terminal = document.getElementById("terminal");
+
+        /* ================= ADD LINE ================= */
+        function addLine(text) {
+            const d = document.createElement("div");
+            d.className = "line";
+            d.textContent = text;
+            terminal.appendChild(d);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+        let input;
+
+        function moveInputToBottom() {
+            const inputLine = document.querySelector(".input-line");
+            if (!inputLine) return;
+
+            // remove from current position
+            inputLine.remove();
+
+            // add at bottom
+            terminal.appendChild(inputLine);
+
+            input.focus();
+        }
+
+        /* ================= CREATE INPUT AS LINE ================= */
+        function createInput() {
+            const wrapper = document.createElement("div");
+            wrapper.className = "input-line";
+
+            wrapper.innerHTML = `
+    <span>$</span>
+    <input style="width: 100%;" autocomplete="off" />
+  `;
+
+            input = wrapper.querySelector("input");
+
+            input.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    const cmd = input.value.trim();
+                    input.value = "";
+
+                    const promptSpan = wrapper.querySelector("span");
+                    const currentPrompt = promptSpan.textContent;
+
+                    addLine(currentPrompt + " " + cmd);
+                    handle(cmd);
+
+                    if (cmd) {
+                        promptSpan.textContent = "$:/" + cmd + ">";
+                    }
+
+                    moveInputToBottom(); // IMPORTANT
+                }
+            });
+
+            terminal.appendChild(wrapper);
+            focusInput();
+        }
+
+        function focusInput() {
+            const input = document.querySelector(".input-line input");
+            if (input) input.focus();
+        }
+        /* ================= COMMAND HANDLER ================= */
+        function handle(cmd) {
+
+            if (cmd.startsWith("cd ")) {
+                cmd = cmd.replace("cd ", "").trim()
+            }
+
+
+            switch (cmd) {
+
+                case "hello":
+                    addLine("Hello 👋");
+                    break;
+
+                case "author":
+                    addLine("MD Shariful Islam");
+                    break;
+
+                case "status":
+                    addLine("Server RUNNING");
+                    break;
+
+                case "features":
+                    addLine("Kafka Redis MySQL Elastic Socket Swagger");
+                    break;
+
+                case "docs":
+                    addLine("Redirecting to /docs...");
+                    setTimeout(() => window.location.href = "/docs", 500);
+                    break;
+
+                case "help":
+                    addLine("Available commands:");
+                    addLine("help | author | status | features | docs | time | clear | github");
+                    break;
+
+                case "time":
+                    addLine(new Date().toLocaleString("en-US", { timeZone: "Asia/Dhaka" }));
+                    break;
+
+                case "clear":
+                    terminal.innerHTML = "";
+                    start();
+                    focusInput();
+                    return;
+
+                case "random":
+                    addLine(Math.random().toString());
+                    break;
+
+                case "cls":
+                    terminal.innerHTML = "";
+                    start();
+                    focusInput();
+                    return;
+                case "ls":
+                    addLine(`\n> author\n> features\n> docs\n> github\n> help\n> time\n> random
+                    `);
+                    break;
+
+                case "github":
+                    addLine("Redirecting to https://github.com/mdsharifulislam-r/nest-js-template-2.0.git...");
+                    setTimeout(() => window.location.href = "https://github.com/mdsharifulislam-r/nest-js-template-2.0.git", 500);
+                    break;
+
+
+
+                default:
+                    try {
+                        if (cmd.includes("console.log")) {
+                            addLine(cmd.replace("console.log", "").replace("(", "").replace(")", "").trim())
+                            return;
+                        }
+                        const result = eval(cmd);
+
+                        if (typeof result === 'string') addLine(result);
+
+                        else addLine(JSON.stringify(result, null, 2));
+
+                    } catch (e) {
+                        addLine(`'${cmd}' command is not found. Type 'help' for available commands`)
+                    }
+                    break;
+            }
+
+        }
+
+        /* ================= START ================= */
+        function start() {
+
+            addLine("NESTU SYSTEM BOOTED...");
+            addLine("Kafka ✔ Redis ✔ MySQL ✔ Elastic ✔");
+            addLine("Available commands:");
+            addLine("help | author | status | features | docs | time | clear | github");
+
+            createInput();
+        }
+
+        start();
+
+        /* ================= PARTICLES ================= */
+        const canvas = document.getElementById("particles");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let p = [];
+
+        for (let i = 0; i < 50; i++) {
+            p.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                r: Math.random() * 2,
+                dx: (Math.random() - 0.5),
+                dy: (Math.random() - 0.5)
+            });
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            p.forEach(pt => {
+                pt.x += pt.dx;
+                pt.y += pt.dy;
+
+                if (pt.x < 0 || pt.x > canvas.width) pt.dx *= -1;
+                if (pt.y < 0 || pt.y > canvas.height) pt.dy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+                ctx.fillStyle = "#00ff9c";
+                ctx.fill();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+    </script>
+
+</body>
+
+</html>
