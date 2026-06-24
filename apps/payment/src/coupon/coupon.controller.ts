@@ -12,8 +12,8 @@ export class CouponController {
 
   @Post()
   @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
-  createCoupon(@Body() createCouponDto: CreateCouponDto) {
-    return this.couponService.createCoupon(createCouponDto)
+  createCoupon(@Body() createCouponDto: CreateCouponDto, @CurrentUser() user: any) {
+    return this.couponService.createCoupon(createCouponDto, user.id)
   }
 
   @Get()
@@ -35,14 +35,14 @@ export class CouponController {
   }
   @Patch(':id')
   @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
-  updateCoupon(@Param('id') id: string, @Body() updateCouponDto: UpdateCouponDto) {
-    return this.couponService.updateCoupon(id, updateCouponDto)
+  updateCoupon(@Param('id') id: string, @Body() updateCouponDto: UpdateCouponDto, @CurrentUser() user: any) {
+    return this.couponService.updateCoupon(id, updateCouponDto, user.id)
   }
 
   @Delete(':id')
   @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
-  deleteCoupon(@Param('id') id: string) {
-    return this.couponService.deleteCoupon(id)
+  deleteCoupon(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.couponService.deleteCoupon(id, user.id)
   }
 
 

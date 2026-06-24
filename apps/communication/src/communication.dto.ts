@@ -6,7 +6,8 @@ export enum FilePathType {
     REVIEW = "review",
     WITHDRAWAL = "withdrawal",
     TRIP = "trip",
-    REPORT = "report"
+    REPORT = "report",
+    RISKY_ITEM = "risky_item"
 }
 
 export class CreateNotificationDto {

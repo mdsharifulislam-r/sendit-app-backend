@@ -27,7 +27,7 @@ export class CreateReviewDto {
     })
     @IsMongoId()
     @IsOptional()
-    bookingId: Types.ObjectId
+    booking: Types.ObjectId
 
     @ApiProperty({
         description: "Give the review type",
@@ -37,4 +37,22 @@ export class CreateReviewDto {
     @IsEnum(ReviewType)
     @IsOptional()
     type: ReviewType
+
+    transporter: Types.ObjectId
+    user: Types.ObjectId
 }
+
+
+export class ChangeReviewStatusDto {
+    @ApiProperty({
+        description: "Give the status",
+        example: "approved",
+        enum: ['pending', 'approved', 'rejected']
+    })
+    @IsEnum(['pending', 'approved', 'rejected'])
+    @IsNotEmpty()
+    status: 'pending' | 'approved' | 'rejected'
+
+}
+
+

@@ -15,6 +15,7 @@ import { UploadModule } from '../../../utils/helper-modules/upload/upload.module
 import { SqsModule } from '../../../utils/helper-modules/sns/sqs.module';
 import { QrModule } from '../../../utils/helper-modules/qr/qr.module';
 import { TransportAgreementModule } from './transport-agreement/transport-agreement.module';
+import { AddressModule } from './address/address.module';
 
 
 @Module({
@@ -59,7 +60,8 @@ import { TransportAgreementModule } from './transport-agreement/transport-agreem
     UploadModule,
     SqsModule,
     QrModule,
-    TransportAgreementModule
+    TransportAgreementModule,
+    AddressModule
     // KafkaModule,
   ],
   controllers: [AppController],

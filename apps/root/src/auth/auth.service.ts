@@ -18,6 +18,9 @@ import generateOTP from 'utils/helper/generateOtp';
 import { emailTemplate } from 'utils/shared/emailTemplate';
 import { EmailService } from '../../../../utils/helper-modules/email/email.service';
 import { SnsService } from 'utils/helper-modules/sns/sns.service';
+import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
+import { SocialLoginDto } from '../user/user.dto';
+import { USER_ROLES } from 'utils/enums/user';
 
 @Injectable()
 export class AuthService {
@@ -33,7 +36,7 @@ export class AuthService {
 
   private async findActiveUserByEmail(email: string): Promise<UserDocument> {
     const user = await this.userModel
-      .findOne({ email })
+      .findOne({ $or: [{ email }, { contact: email }] })
       .select('id name email password verified status role authentication');
 
     if (!user) {
@@ -70,6 +73,13 @@ export class AuthService {
 
     if (!isResetPassword) {
       await this.snsService.publish('wallet.created', user._id.toString());
+      await this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+        action: `New User Registered`,
+        user: user._id,
+        old_value: '',
+        new_value: '',
+        reason: ''
+      })
       return sendResponse({
         statusCode: HttpStatus.OK,
         message: 'Email verified successfully',
@@ -90,8 +100,12 @@ export class AuthService {
   }
 
   async login(payload: LoginDto) {
-    const user = await this.findActiveUserByEmail(payload.email);
-    console.log(user, "user", payload, "payload");
+
+    if (!payload.email && !payload.phone) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Email or phone is required');
+    }
+    const user = await this.findActiveUserByEmail(payload.email! || payload.phone!);
+
 
     if (!user.verified) {
       throw new ApiError(HttpStatus.UNAUTHORIZED, 'Please verify your email before logging in');
@@ -218,5 +232,47 @@ export class AuthService {
       data: { email: user.email },
       success: true,
     });
+  }
+
+  async socialSignIn(dto: SocialLoginDto) {
+    const existUser = await this.userModel.findOne({ email: dto.email, is_social_login: true, social_platform: dto.social_platform })
+
+    if (!existUser) {
+      const user = await this.userModel.create({
+        ...dto,
+        is_social_login: true,
+        social_platform: dto.social_platform,
+        app_id: dto.app_id,
+        role: USER_ROLES.TRAVELER,
+        password: `welcome123`
+      });
+
+      const accessToken = this.jwtService.sign({
+        id: user._id.toString(),
+        role: user.role,
+        email: user.email,
+      });
+
+      return sendResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Login successful',
+        data: { accessToken, role: user.role },
+        success: true,
+      });
+    }
+
+    const accessToken = this.jwtService.sign({
+      id: existUser._id.toString(),
+      role: existUser.role,
+      email: existUser.email,
+    });
+
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      message: 'Login successful',
+      data: { accessToken, role: existUser.role },
+      success: true,
+    });
+
   }
 }

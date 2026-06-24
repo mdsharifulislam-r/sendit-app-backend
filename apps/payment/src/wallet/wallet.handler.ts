@@ -8,6 +8,7 @@ import { SnsService } from "utils/helper-modules/sns/sns.service";
 import { CreateTransactionDto } from "../transaction/transaction.dto";
 import { TRANSACTION_PAYMENT_TYPE, TRANSACTION_STATUS, TRANSACTION_TYPE } from "../transaction/transaction.entity";
 import { CacheService } from "utils/helper-modules/cache/cache.service";
+import { CreateAuditLogsDto } from "apps/admin/src/audit-logs/audit-logs.dto";
 
 
 @Injectable()
@@ -54,6 +55,14 @@ export class WalletHandler {
                 status: TRANSACTION_STATUS.COMPLETED
             });
 
+            this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+                action: 'Wallet Diposit',
+                user: userId as any,
+                old_value: `${(wallet.balance - amount * 100) / 100}`,
+                new_value: `${wallet.balance / 100}`,
+                reason: `Amount ${amount} is credited to wallet`
+            });
+
             await this.cacheService.deleteByPattern(`wallet:${userId}`);
 
             return { message: "Wallet balance updated successfully" };
@@ -65,10 +74,10 @@ export class WalletHandler {
     }
 
 
-    async handleUserWalletDipositByUserId(data: { user: string, amount: number, booking_id: string }) {
+    async handleUserWalletDipositByUserId(data: { user: string, amount: number, booking_id: string, sender: string, _id: string }) {
         console.log(data, '===================================');
 
-        const { user, amount } = data;
+        const { user, amount, sender } = data;
         const mongoSession = await this.connection.startSession();
         await mongoSession.startTransaction();
         try {
@@ -97,7 +106,11 @@ export class WalletHandler {
                 trx_id: ``,
                 payment_status: TRANSACTION_PAYMENT_TYPE.CREDIT,
                 type: TRANSACTION_TYPE.PAYMENT,
-                status: TRANSACTION_STATUS.COMPLETED
+                status: TRANSACTION_STATUS.COMPLETED,
+                travelerId: sender,
+                bookingId: data._id,
+                transporterId: data.user
+
             });
 
             await this.cacheService.deleteByPattern(`wallet:${userId}`);

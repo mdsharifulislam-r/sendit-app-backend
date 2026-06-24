@@ -11,6 +11,7 @@ import { Booking, BookingSchema } from 'apps/booking/src/booking.entity';
 import { AuthModule } from 'apps/root/src/auth/auth.module';
 import { WalletHandler } from './wallet.handler';
 import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
+import { PricingRules, PricingRulesSchema } from '../pricing-rules/pricing-rules.entity';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
       { name: Trip.name, schema: TripSchema },
       { name: StopDetails.name, schema: StopDetailsSchema },
       { name: Booking.name, schema: BookingSchema },
+      { name: PricingRules.name, schema: PricingRulesSchema },
     ]),
     SqsModule,
     AuthModule,

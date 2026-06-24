@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from './user.entity';
 import { Model } from 'mongoose';
 import { EmailService } from '../../../../utils/helper-modules/email/email.service';
-import { ChangeEmailDto, ChangeEmailVerifyDto, CompleteKycVerificationDto, CreateUserDto, UpdateProfileDto } from './user.dto';
+import { ChangeEmailDto, ChangeEmailVerifyDto, CompleteKycVerificationDto, CreateUserDto, DeleteAccountDto, SocialLoginDto, UpdateProfileDto } from './user.dto';
 import { ApiError } from 'utils/errors/api-error';
 import generateOTP from 'utils/helper/generateOtp';
 import sendResponse from 'utils/helper/sendResponse';
@@ -15,13 +15,17 @@ import { SnsService } from 'utils/helper-modules/sns/sns.service';
 import { CreateNotificationDto, FilePathType } from 'apps/communication/src/communication.dto';
 import { ConfigService } from '@nestjs/config';
 import { USER_ROLES } from 'utils/enums/user';
-
+import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
+import { RiskSettings, RiskSettingsDocument } from 'apps/admin/src/risk-settings/risk-settings.entity';
+import { CreateRiskyItems, RISK_ITEM_TYPE, RISKY_ITEM_STATUS } from 'apps/admin/src/risk-settings/risk-settings.dto';
+import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(RiskSettings.name) private readonly riskSettingsModel: Model<RiskSettingsDocument>,
     private readonly emailService: EmailService,
     private readonly s3Service: S3Service,
     private readonly snsService: SnsService,
@@ -30,8 +34,9 @@ export class UserService {
 
   async create(dto: CreateUserDto) {
     const exists = await this.userModel.findOne({ email: dto.email });
-    if (exists) {
-      if (!exists.verified) {
+    const phoneExist = await this.userModel.findOne({ contact: dto.contact });
+    if (exists || phoneExist) {
+      if (!exists?.verified || !phoneExist?.verified) {
         this.handleUnverifiedUser(dto.email);
         return sendResponse({
           statusCode: HttpStatus.OK,
@@ -39,7 +44,7 @@ export class UserService {
           message: 'User with this email already exists. Please verify your email.',
         });
       }
-      throw new ApiError(HttpStatus.CONFLICT, 'User with this email already exists');
+      throw new ApiError(HttpStatus.CONFLICT, `User with this ${exists ? 'email' : 'phone number'} already exists`);
     }
 
     const user = new this.userModel(dto);
@@ -177,7 +182,7 @@ export class UserService {
       throw new ApiError(HttpStatus.NOT_FOUND, 'User not found ');
     }
 
-    await this.userModel.findByIdAndUpdate(userId, {
+    const updated = await this.userModel.findByIdAndUpdate(userId, {
       passport_info: {
         ...user.passport_info,
         file: (await this.s3Service.uploadFile(dto.passport_image)).url,
@@ -200,14 +205,44 @@ export class UserService {
         rejection_reason: "",
         verified_at: null,
       },
-    });
+      $inc: { kyc_submission_count: 1 }
+    }, { new: true });
 
-    await this.snsService.publish<CreateNotificationDto>('notification.send', {
+    const riskSettings = await this.riskSettingsModel.findOne({}, { max_failed_kyc_attempts: 1 }).lean();
+
+    if ((updated?.kyc_submission_count || 0) >= (riskSettings?.max_failed_kyc_attempts || 0)) {
+      this.snsService.publish<CreateRiskyItems>("risk.item.create", {
+        type: RISK_ITEM_TYPE.USER,
+        description: `User ${user?.name} has submitted KYC more than ${riskSettings?.max_failed_kyc_attempts} times`,
+        item: userId as any,
+        status: RISKY_ITEM_STATUS.PENDNIG,
+      })
+    }
+
+
+    this.snsService.publish<CreateNotificationDto>('notification.send', {
       title: `${user?.name} is requesting for KYC verification`,
       message: 'Please review the KYC documents and approve or reject the request.',
       isRead: false,
       filePath: FilePathType.USER,
       referenceId: userId,
+    });
+
+    this.snsService.publish<CreateNotificationDto>('notification.send', {
+      title: `KYC Verification Request`,
+      message: 'Your KYC verification request has been submitted successfully.',
+      isRead: false,
+      receiver: [userId],
+      filePath: FilePathType.USER,
+      referenceId: userId,
+    })
+
+    this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+      action: 'KYC verification request',
+      user: userId as any,
+      old_value: '',
+      new_value: 'Pending',
+      reason: 'KYC verification request',
     });
 
     return sendResponse({
@@ -295,5 +330,37 @@ export class UserService {
     console.log('Admin created successfully');
     return true
   }
+
+  async accountDelete(payload: DeleteAccountDto, userId: string) {
+    const user = await this.userModel.findById(userId).select("+password")
+
+    if (!user) {
+      throw new ApiError(HttpStatus.NOT_FOUND, "User not found");
+    }
+
+    if (user.status == 'delete') {
+      throw new ApiError(HttpStatus.BAD_REQUEST, "Account already deleted");
+    }
+
+    const isPasswordValid = await bcrypt.compare(payload.password, user.password);
+
+    if (!isPasswordValid) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, "Invalid password");
+    }
+
+    await this.userModel.findByIdAndUpdate(userId, {
+      status: 'delete'
+    })
+
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      data: null,
+      success: true,
+      message: "Account deleted successfully",
+    });
+
+  }
+
+
 
 }

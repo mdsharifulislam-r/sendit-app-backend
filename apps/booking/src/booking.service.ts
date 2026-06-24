@@ -17,6 +17,8 @@ import { CreateNotificationDto, FilePathType } from 'apps/communication/src/comm
 import MongooseQueryBuilder from 'utils/queryBuilder/queryBuilder';
 import { CouponService } from 'apps/payment/src/coupon/coupon.service';
 import { PricingRulesService } from 'apps/payment/src/pricing-rules/pricing-rules.service';
+import { getDatePeriodRange, Period } from 'utils/helper/dateHelper';
+import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
 
 @Injectable()
 export class BookingService {
@@ -191,7 +193,14 @@ export class BookingService {
           filePath: FilePathType.BOOKING,
           referenceId: savedBooking.id
         } as CreateNotificationDto),
-        this.snsService.publish('qr.code.generate', { data: JSON.stringify({ id: savedBooking.id, date: new Date() }), id: savedBooking.id })
+        this.snsService.publish('qr.code.generate', { data: JSON.stringify({ id: savedBooking.id, date: new Date() }), id: savedBooking.id }),
+        this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+          action: "Booking placed",
+          user: userId as any,
+          old_value: ``,
+          new_value: ``,
+          reason: "Booking placed"
+        }),
       ]);
 
       if (coupon) {
@@ -263,8 +272,7 @@ export class BookingService {
       await this.cacheService.deleteByPattern(`booking_request:${userId}`)
       await this.cacheService.deleteByPattern(`my_parcel:${booking.sender._id.toString()}`)
       const res = await this.walletModel.findOneAndUpdate({ user: booking.sender._id }, { $inc: { balance: booking.price_breakdown.total * 100 } });
-      console.log(res)
-      await this.snsService.publish('notification.send', {
+      this.snsService.publish('notification.send', {
         title: `Booking #${booking.id}`,
         message: `Booking #${booking.id} has been rejected by ${(booking.transporter as any)?.name}`,
         receiver: [booking.sender._id.toString()],
@@ -272,6 +280,15 @@ export class BookingService {
         filePath: FilePathType.BOOKING,
         referenceId: booking.id
       } as CreateNotificationDto)
+
+      await this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+        action: `Booking #${booking.id} rejected`,
+        user: userId as any,
+        old_value: booking.status,
+        new_value: status,
+        reason: rejection_reason!
+      });
+
       return sendResponse({
         statusCode: HttpStatus.OK,
         message: 'Booking rejected successfully',
@@ -284,7 +301,7 @@ export class BookingService {
       await this.bookingModel.findByIdAndUpdate(booking._id, { status, current_stage: TIMELINE_TYPE.BOOKED })
       await this.cacheService.deleteByPattern(`booking_request:${userId}`)
       await this.cacheService.deleteByPattern(`my_parcel:${booking.sender._id.toString()}`)
-      await this.snsService.publish('notification.send', {
+      this.snsService.publish('notification.send', {
         title: `Booking #${booking.id}`,
         message: `Booking #${booking.id} has been confirmed by ${(booking.transporter as any)?.name}`,
         receiver: [booking.sender._id.toString()],
@@ -292,6 +309,14 @@ export class BookingService {
         filePath: FilePathType.BOOKING,
         referenceId: booking.id
       } as CreateNotificationDto)
+
+      this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+        action: `Booking #${booking.id} confirmed`,
+        user: userId as any,
+        old_value: booking.status,
+        new_value: status,
+        reason: "Booking confirmed"
+      });
 
       return sendResponse({
         statusCode: HttpStatus.OK,
@@ -345,6 +370,14 @@ export class BookingService {
       referenceId: booking.id
     } as CreateNotificationDto)
 
+    this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+      action: `Booking #${booking.id} picked up`,
+      user: userId as any,
+      old_value: booking.current_stage,
+      new_value: TIMELINE_TYPE.PICKED_UP,
+      reason: "Booking picked up"
+    });
+
     return sendResponse({
       statusCode: HttpStatus.OK,
       message: 'Booking picked up successfully',
@@ -384,6 +417,14 @@ export class BookingService {
       filePath: FilePathType.BOOKING,
       referenceId: booking.id
     } as CreateNotificationDto)
+
+    this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+      action: `Booking #${booking.id} in transit`,
+      user: userId as any,
+      old_value: booking.current_stage,
+      new_value: TIMELINE_TYPE.IN_TRANSIT,
+      reason: "Booking in transit"
+    });
 
     return sendResponse({
       statusCode: HttpStatus.OK,
@@ -433,8 +474,10 @@ export class BookingService {
     await this.cacheService.deleteByPattern(`my_parcel:${booking.sender._id.toString()}`)
     await this.snsService.publish('wallet.add.payment', {
       user: booking.transporter._id.toString(),
-      amount: booking.price_breakdown.total,
-      booking_id: booking.id
+      amount: booking.price_breakdown.subtotal,
+      booking_id: booking.id,
+      _id: booking._id,
+      sender: booking.sender._id.toString()
     })
     await this.snsService.publish('notification.send', {
       title: `Booking #${booking.id}`,
@@ -444,6 +487,14 @@ export class BookingService {
       filePath: FilePathType.BOOKING,
       referenceId: booking.id
     } as CreateNotificationDto)
+
+    this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+      action: `Booking #${booking.id} delivered`,
+      user: userId as any,
+      old_value: booking.current_stage,
+      new_value: TIMELINE_TYPE.DELIVERED,
+      reason: "Booking delivered"
+    });
 
     return sendResponse({
       statusCode: HttpStatus.OK,
@@ -486,6 +537,14 @@ export class BookingService {
       referenceId: booking.id
     } as CreateNotificationDto)
 
+    this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+      action: `Booking #${booking.id} cancelled`,
+      user: userId as any,
+      old_value: booking.current_stage,
+      new_value: TIMELINE_TYPE.CANCELLED,
+      reason: body.cancellation_reason
+    });
+
     return sendResponse({
       statusCode: HttpStatus.OK,
       message: 'Booking cancelled successfully',
@@ -513,6 +572,8 @@ export class BookingService {
     await this.cacheService.set(`my_parcel:${userId}`, { bookings, pagination }, 60 * 60, query)
     return { bookings, pagination }
   }
+
+
 
 
 

@@ -7,7 +7,7 @@ export type ReviewDocument = Review & Document;
 @Schema({ timestamps: true })
 export class Review {
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Booking', required: false })
-    booking_id?: Types.ObjectId;
+    booking?: Types.ObjectId;
 
     @Prop({ type: Number, required: true })
     rating: number;
@@ -18,11 +18,21 @@ export class Review {
     @Prop({ type: String, required: true, enum: ReviewType })
     type: ReviewType;
 
+    @Prop({ type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' })
+    status: 'pending' | 'approved' | 'rejected'
+
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
     user: Types.ObjectId;
 
-    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
     transporter: Types.ObjectId;
 }
 
 export const ReviewSchema = SchemaFactory.createForClass(Review);
+
+ReviewSchema.pre('save', function (next) {
+    if (this.type == ReviewType.BOOKING) {
+        this.status = 'approved'
+    }
+    next()
+})

@@ -14,6 +14,7 @@ import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
 import { TransportAgreementModule } from 'apps/root/src/transport-agreement/transport-agreement.module';
 import { TransportAgreement, TransportAgreementSchema } from 'apps/root/src/transport-agreement/transport-agreement.entity';
 import { ReviewModule } from './review/review.module';
+import { RiskSettings, RiskSettingsSchema } from 'apps/admin/src/risk-settings/risk-settings.entity';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ReviewModule } from './review/review.module';
       { name: StopDetails.name, schema: StopDetailsSchema },
       { name: Booking.name, schema: BookingSchema },
       { name: TransportAgreement.name, schema: TransportAgreementSchema },
+      { name: RiskSettings.name, schema: RiskSettingsSchema }
     ]),
     AuthModule,
     // KafkaModule,

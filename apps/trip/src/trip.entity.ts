@@ -22,7 +22,7 @@ class TripRules {
   content: string;
 }
 
-@Schema({ timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }, collection: 'trips' })
+@Schema({ timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' }, collection: 'trips' })
 export class Trip {
   _id: Types.ObjectId;
 
@@ -84,7 +84,7 @@ export class Trip {
   @Prop({ type: Number, default: null })
   available_space_kg: number;
 
-  @Prop({ type: String, enum: TRIP_STATUS, default: TRIP_STATUS.DRAFT })
+  @Prop({ type: String, enum: TRIP_STATUS, default: TRIP_STATUS.PUBLISHED })
   status: TRIP_STATUS;
 
   @Prop({ type: String, enum: TRANSPORT_TYPE, default: null })
@@ -112,6 +112,9 @@ export class Trip {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   user: Types.ObjectId;
+
+  @Prop({ type: String, default: null })
+  cancellation_reason: string;
 }
 
 export const TripSchema = SchemaFactory.createForClass(Trip);

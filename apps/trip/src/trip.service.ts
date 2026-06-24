@@ -2,16 +2,21 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Trip, TripDocument } from './trip.entity';
 import { Model } from 'mongoose';
-import { CreateTripDto, SearchTripDto } from './trip.dto';
+import { CreateTripDto, EditTripDto, SearchTripDto, TRIP_STATUS } from './trip.dto';
 import sendResponse from 'utils/helper/sendResponse';
 import { CreateNotificationDto, FilePathType } from 'apps/communication/src/communication.dto';
 import { CacheService } from 'utils/helper-modules/cache/cache.service';
 import { ApiError } from 'utils/errors/api-error';
-import { CreateBookingDto } from 'apps/booking/src/booking.dto';
+import { BOOKING_STATUS, CreateBookingDto } from 'apps/booking/src/booking.dto';
 import { SnsService } from 'utils/helper-modules/sns/sns.service';
 import { StopDetails, StopDetailsDocument } from './stop.entity';
 import { TransportAgreementService } from 'apps/root/src/transport-agreement/transport-agreement.service';
 import { User, UserDocument } from 'apps/root/src/user/user.entity';
+import { Booking } from 'apps/booking/src/booking.entity';
+import QueryBuilder from 'utils/queryBuilder/queryBuilder';
+import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
+import { RiskSettings, RiskSettingsDocument } from 'apps/admin/src/risk-settings/risk-settings.entity';
+import { CreateRiskyItems, RISK_ITEM_TYPE, RISKY_ITEM_STATUS } from 'apps/admin/src/risk-settings/risk-settings.dto';
 
 @Injectable()
 export class TripService {
@@ -20,11 +25,15 @@ export class TripService {
     private tripModel: Model<TripDocument>,
     @InjectModel(StopDetails.name)
     private stopDetailsModel: Model<StopDetailsDocument>,
+    @InjectModel(Booking.name)
+    private bookingModel: Model<Booking>,
     private snsService: SnsService,
     private cacheService: CacheService,
     private transportAgreementService: TransportAgreementService,
     @InjectModel(User.name)
-    private userModel: Model<UserDocument>
+    private userModel: Model<UserDocument>,
+    @InjectModel(RiskSettings.name)
+    private riskSettingModel: Model<RiskSettingsDocument>,
   ) { }
 
   async create(createTripDto: CreateTripDto, userId: string) {
@@ -99,8 +108,41 @@ export class TripService {
       isRead: false
     });
 
+    this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+      action: 'Trip Publish',
+      user: userId as any,
+      old_value: '',
+      new_value: '',
+      reason: ''
+    });
+
     this.transportAgreementService.deleteOneTimeTripAgreement(userId)
-    await this.cacheService.deleteByPattern('trip_search:*');
+    await Promise.all([
+      this.cacheService.deleteByPattern('trip_search'),
+      this.cacheService.deleteByPattern(`todays_trips:${userId}`),
+      this.cacheService.deleteByPattern(`upcomming_trips:${userId}`),
+      this.userModel.updateOne({ _id: userId }, { $inc: { trip_count: 1 } }),
+    ]);
+
+    const riskSetting = await this.riskSettingModel.findOne({}, { auto_flag_weight_threshold: 1 })
+
+    if (riskSetting?.auto_flag_weight_threshold) {
+
+      const weight = createTripDto.available_space_kg
+
+      if (weight > riskSetting?.auto_flag_weight_threshold) {
+        this.snsService.publish<CreateRiskyItems>('risk.item.create', {
+          type: RISK_ITEM_TYPE.TRIP,
+          item: data._id,
+          description: `Trip weight (${weight}kg) is greater than threshold (${riskSetting?.auto_flag_weight_threshold}kg)`,
+          status: RISKY_ITEM_STATUS.PENDNIG
+        })
+      }
+
+    }
+
+
+
     return sendResponse({
       statusCode: HttpStatus.CREATED,
       data,
@@ -176,7 +218,9 @@ export class TripService {
     }
 
     const skip = (page - 1) * limit;
-    const filter: any = {};
+    const filter: any = {
+      status: TRIP_STATUS.PUBLISHED
+    };
 
     /**
      * SEARCH
@@ -305,7 +349,7 @@ export class TripService {
     });
   }
 
-  async getSingleTripDetails(id: string, session_id?: string) {
+  async getSingleTripDetails(id: string, session_id?: string, userId?: string) {
     const cache = await this.cacheService.get(`trip_details:${id}`, { session_id }) as any;
     if (cache) {
       return cache.data;
@@ -322,14 +366,187 @@ export class TripService {
       .populate({ path: 'stops' })
       .select('id departure_address return_address departure_date return_date departure_location return_location pricing_details available_space_kg created_at transport_type vehicle_details carry_type trip_description trip_rules');
 
+
     const formatted = {
       ...trip?.toObject(),
       estimated_price: trip?.pricing_details?.price_per_kg && session?.weight ? trip.pricing_details.price_per_kg * session.weight : null,
       session_id: session_id || null
     };
 
+    if (session_id && userId) {
+      this.saveRecentTripSearch(userId, trip?._id?.toString()!)
+    }
+
     this.cacheService.set(`trip_details:${id}`, { data: formatted }, 60 * 2, { session_id });
 
     return formatted;
   }
+
+  async editTripDetails(id: string, payload: CreateTripDto) {
+    const trip = await this.tripModel.findOne({ _id: id })
+    if (!trip) {
+      throw new ApiError(HttpStatus.NOT_FOUND, 'Trip not found')
+    }
+
+    if (payload.stops.length > 0) {
+      await this.stopDetailsModel.deleteMany({ trip: id })
+      const stops = await Promise.all(
+        payload.stops.map(async (stop: any) => {
+          const stopData = await this.stopDetailsModel.create({ ...stop, trip: id, location: { type: 'Point', coordinates: [stop.location[0], stop.location[1]] } });
+          return stopData._id
+        }),
+      );
+      payload.stops = stops as any;
+    }
+
+    if (payload.departure_location) {
+      payload.departure_location = {
+        type: "Point",
+        coordinates: [payload.departure_location[0], payload.departure_location[1]]
+      } as any
+    }
+
+    if (payload.return_location) {
+      payload.return_location = {
+        type: "Point",
+        coordinates: [payload.return_location[0], payload.return_location[1]]
+      } as any
+    }
+
+    const updatedTrip = await this.tripModel.findByIdAndUpdate(id, payload, { new: true })
+
+    await this.cacheService.deleteByPattern(`trip_details:${id}`)
+    await this.cacheService.deleteByPattern('trip_search')
+
+
+    return sendResponse({
+      statusCode: 200,
+      success: true,
+      message: "Trip updated successfully",
+      data: updatedTrip,
+    });
+
+  }
+
+  async cancelTrip(id: string, cancelReason: string,) {
+    const trip = await this.tripModel.findOne({ _id: id })
+    if (!trip) {
+      throw new ApiError(HttpStatus.NOT_FOUND, 'Trip not found')
+    }
+
+    if (trip.status == TRIP_STATUS.CANCELLED) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Trip already cancelled')
+    }
+
+    const activeBooking = await this.bookingModel.countDocuments({ trip: id, status: BOOKING_STATUS.CONFIRMED })
+
+    if (activeBooking > 0) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Trip has active bookings!! cancel all bookings and try again.')
+    }
+
+    trip.status = TRIP_STATUS.CANCELLED
+    trip.cancellation_reason = cancelReason
+    await trip.save()
+
+    await this.cacheService.deleteByPattern(`trip_details:${id}`)
+    await this.cacheService.deleteByPattern('trip_search')
+    await this.userModel.updateOne({ _id: trip.user }, { $inc: { trip_count: -1 } })
+
+    return sendResponse({
+      statusCode: 200,
+      success: true,
+      message: "Trip cancelled successfully",
+      data: trip,
+    });
+  }
+
+  async saveRecentTripSearch(user: string, tripId: string) {
+    const isExit = await this.cacheService.get(`recent_search:${user}`) as any as string[]
+
+    if (isExit?.length) {
+      const hasInExist = isExit.includes(tripId)
+      if (hasInExist) {
+        return true
+      }
+      isExit.unshift(tripId)
+      await this.cacheService.set(`recent_search:${user}`, isExit, 60 * 60 * 24)
+      return true
+    }
+    await this.cacheService.set(`recent_search:${user}`, [tripId], 60 * 60 * 24)
+    return true
+  }
+
+  async getUserRecentSearch(user: string, query: Record<string, any>) {
+    const cache = await this.cacheService.get(`recent_search:${user}`) as any as string[] || []
+
+    const tripQuery = new QueryBuilder(this.tripModel.find({ _id: { $in: cache } }, { _id: 1, id: 1, departure_address: 1, return_address: 1, createdAt: 1 }), query).paginate()
+
+    const [data, pagination] = await Promise.all([
+      tripQuery.modelQuery.lean(),
+      tripQuery.getPaginationInfo()
+    ])
+
+    return sendResponse({
+      statusCode: 200,
+      success: true,
+      message: "Your recent searches fetched successfully",
+      data: data,
+      pagination
+    });
+  }
+
+  async getTodaysTrips(user: string, query: Record<string, any>) {
+    const cache = await this.cacheService.get(`todays_trips:${user}`)
+    if (cache) return cache
+
+    const todayStartTime = new Date(new Date().setHours(0, 0, 0, 0))
+    const todayEndTime = new Date(new Date().setHours(23, 59, 59, 999))
+
+    const filter = {
+      user,
+      status: TRIP_STATUS.PUBLISHED,
+      departure_date: { $gte: todayStartTime, $lte: todayEndTime },
+
+    }
+
+    const tripQuery = new QueryBuilder(this.tripModel.find(filter, { _id: 1, id: 1, departure_address: 1, return_address: 1, departure_date: 1, return_date: 1, createdAt: 1 }), query).paginate().sort()
+    const [data, pagination] = await Promise.all([
+      tripQuery.modelQuery.lean(),
+      tripQuery.getPaginationInfo()
+    ])
+
+    await this.cacheService.set(`todays_trips:${user}`, { data, pagination }, 60 * 60)
+
+    return {
+      data,
+      pagination
+    }
+  }
+
+
+  async getUpcommingTrips(user: string, query: Record<string, any>) {
+    const cache = await this.cacheService.get(`upcomming_trips:${user}`)
+    if (cache) return cache
+    const todayEndTime = new Date(new Date().setHours(23, 59, 59, 999))
+    const filter = {
+      user,
+      status: TRIP_STATUS.PUBLISHED,
+      departure_date: { $gte: todayEndTime },
+    }
+
+    const tripQuery = new QueryBuilder(this.tripModel.find(filter, { _id: 1, id: 1, departure_address: 1, return_address: 1, departure_date: 1, return_date: 1, createdAt: 1 }), query).paginate().sort()
+    const [data, pagination] = await Promise.all([
+      tripQuery.modelQuery.lean(),
+      tripQuery.getPaginationInfo()
+    ])
+
+    await this.cacheService.set(`upcomming_trips:${user}`, { data, pagination }, 60 * 60)
+
+    return {
+      data,
+      pagination
+    }
+  }
+
+
 }

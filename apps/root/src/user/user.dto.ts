@@ -6,9 +6,10 @@ import {
   MinLength,
   IsBoolean,
   IsNumber,
+  IsUrl,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType, OmitType } from '@nestjs/swagger';
-import { USER_ROLES } from 'utils/enums/user';
+import { SOCIAL_PLATFORM, USER_ROLES } from 'utils/enums/user';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'John Doe', description: 'Full name of the user' })
@@ -83,4 +84,34 @@ export class ChangeEmailVerifyDto {
   @ApiProperty({ example: 'john@example.com', description: 'Email address' })
   @IsEmail()
   email!: string;
+}
+
+export class SocialLoginDto {
+  @ApiProperty({ example: 'john@example.com', description: 'Email address' })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({ example: 'John Doe', description: 'Full name' })
+  @IsString()
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'https://example.com/profile.jpg', description: 'Profile image URL' })
+  @IsOptional()
+  @IsUrl()
+  image!: string;
+
+  @ApiProperty({ enum: SOCIAL_PLATFORM, description: 'Social platform' })
+  @IsEnum(SOCIAL_PLATFORM)
+  social_platform!: SOCIAL_PLATFORM;
+
+  @ApiProperty({ example: 'app_id', description: 'App ID' })
+  @IsString()
+  app_id!: string;
+
+}
+
+export class DeleteAccountDto {
+  @ApiProperty({ example: 'StrongPass123!', description: 'Password' })
+  @IsString()
+  password!: string;
 }

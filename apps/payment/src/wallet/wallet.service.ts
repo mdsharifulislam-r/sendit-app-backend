@@ -14,6 +14,8 @@ import { SnsService } from 'utils/helper-modules/sns/sns.service';
 import { CreateTransactionDto } from '../transaction/transaction.dto';
 import { TRANSACTION_PAYMENT_TYPE, TRANSACTION_STATUS, TRANSACTION_TYPE } from '../transaction/transaction.entity';
 import { CreateNotificationDto, FilePathType } from 'apps/communication/src/communication.dto';
+import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
+import { PricingRules } from '../pricing-rules/pricing-rules.entity';
 
 
 
@@ -22,11 +24,13 @@ export class WalletService {
     constructor(
         @InjectModel(Wallet.name) private readonly walletModel: Model<WalletDocument>,
         @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+        @InjectModel(PricingRules.name) private readonly pricingRulesModel: Model<PricingRules>,
         private readonly stripeService: StripeService,
         private readonly cacheService: CacheService,
         private readonly handler: WalletHandler,
         @InjectConnection() private readonly connection: Connection,
         private readonly snsService: SnsService,
+
 
     ) { }
 
@@ -49,10 +53,11 @@ export class WalletService {
 
         const session = await this.stripeService.getClient().checkout.sessions.create({
             payment_method_types: ['card'],
+            currency: "tnd",
             line_items: [
                 {
                     price_data: {
-                        currency: 'usd',
+                        currency: 'tnd',
                         product_data: {
                             name: 'Wallet Topup',
                         },
@@ -196,6 +201,14 @@ export class WalletService {
         if (!wallet) {
             throw new ApiError(HttpStatus.NOT_FOUND, 'Wallet not found');
         }
+
+        const pricingRules = await this.pricingRulesModel.findOne();
+        const fee = pricingRules?.withdraw_fee || 0
+        amount = amount - fee
+        if (amount < (pricingRules?.min_withdraw_amount || 0)) {
+            throw new ApiError(HttpStatus.BAD_REQUEST, 'Minimum withdrawal amount is ' + (pricingRules?.min_withdraw_amount || 0) / 100);
+        }
+
         amount = amount * 100
         if (wallet.balance < amount) {
             throw new ApiError(HttpStatus.BAD_REQUEST, 'Insufficient balance');
@@ -221,12 +234,13 @@ export class WalletService {
                 title: "Withdrawal",
                 amount: Number((amount / 100).toFixed(2)),
                 ownerId: userId,
+                platform_charge: fee,
                 payment_status: TRANSACTION_PAYMENT_TYPE.DEBIT,
                 type: TRANSACTION_TYPE.WITHDRAW,
                 status: TRANSACTION_STATUS.COMPLETED
             } as CreateTransactionDto)
 
-            await this.snsService.publish('notification.send', {
+            this.snsService.publish('notification.send', {
                 title: `Withdrawal Successful`,
                 isRead: false,
                 message: `Withdrawal of $${(amount / 100).toFixed(2)} from your wallet`,
@@ -235,7 +249,7 @@ export class WalletService {
                 referenceId: userId
             } as CreateNotificationDto)
 
-            await this.snsService.publish('notification.send', {
+            this.snsService.publish('notification.send', {
                 title: `${user?.name} has withdrawn $${(amount / 100).toFixed(2)}`,
                 isRead: false,
                 message: `${user?.name} has withdrawn $${(amount / 100).toFixed(2)} from your wallet`,
@@ -244,6 +258,13 @@ export class WalletService {
                 referenceId: userId
             } as CreateNotificationDto)
 
+            this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+                action: 'Withdrawal',
+                user: userId as any,
+                old_value: `${wallet.balance / 100}`,
+                new_value: `${(wallet.balance - amount) / 100}`,
+                reason: `Amount ${amount / 100} is debited from wallet`
+            });
 
             await session.commitTransaction();
             session.endSession();

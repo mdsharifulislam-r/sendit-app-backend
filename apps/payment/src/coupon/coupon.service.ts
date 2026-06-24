@@ -8,16 +8,19 @@ import sendResponse from 'utils/helper/sendResponse';
 import { ApiError } from 'utils/errors/api-error';
 import QueryBuilder from 'utils/queryBuilder/queryBuilder';
 import { SqsConsumer } from 'utils/decorators/sqs-consumer';
+import { SnsService } from 'utils/helper-modules/sns/sns.service';
+import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
 
 @Injectable()
 export class CouponService {
     constructor(
         @InjectModel(Coupon.name) private readonly couponModel: Model<Coupon>,
         @InjectModel(CouponUsage.name) private readonly couponUsageModel: Model<CouponUsage>,
-        private readonly stripeServie: StripeService
+        private readonly stripeServie: StripeService,
+        private readonly snsService: SnsService
     ) { }
 
-    async createCoupon(data: CreateCouponDto) {
+    async createCoupon(data: CreateCouponDto, userId: string) {
         const stripeCoupon = await this.stripeServie.getClient().coupons.create({
             name: data.code,
             duration: "once",
@@ -30,6 +33,13 @@ export class CouponService {
             ...data,
             stripe_coupon_code: stripeCoupon.id,
         })
+        this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+            action: "Coupon created",
+            user: userId as any,
+            old_value: '',
+            new_value: '',
+            reason: "Coupon created"
+        })
         return sendResponse({
             message: 'Coupon created successfully',
             success: true,
@@ -38,7 +48,7 @@ export class CouponService {
         })
     }
 
-    async updateCoupon(id: string, data: CreateCouponDto) {
+    async updateCoupon(id: string, data: CreateCouponDto, userId: string) {
         const stripeCoupon = await this.stripeServie.getClient().coupons.create({
             name: data.code,
             duration: "once",
@@ -51,6 +61,13 @@ export class CouponService {
             ...data,
             stripe_coupon_code: stripeCoupon.id,
         })
+        this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+            action: "Coupon updated",
+            user: userId as any,
+            old_value: '',
+            new_value: '',
+            reason: "Coupon updated"
+        })
         return sendResponse({
             message: 'Coupon updated successfully',
             success: true,
@@ -59,13 +76,20 @@ export class CouponService {
         })
     }
 
-    async deleteCoupon(id: string) {
+    async deleteCoupon(id: string, userId: string) {
         const coupon = await this.couponModel.findById(id)
         if (!coupon) {
             throw new ApiError(404, "Coupon not found")
         }
         await this.stripeServie.getClient().coupons.del(coupon.stripe_coupon_code)
         await this.couponModel.deleteOne({ _id: id })
+        this.snsService.publish<CreateAuditLogsDto>("audit.create", {
+            action: "Coupon deleted",
+            user: userId as any,
+            old_value: '',
+            new_value: '',
+            reason: "Coupon deleted"
+        })
         return sendResponse({
             message: 'Coupon deleted successfully',
             success: true,

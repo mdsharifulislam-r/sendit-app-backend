@@ -6,6 +6,7 @@ import { Coupon, CouponSchema } from './coupon.entity';
 import { StripeModule } from 'utils/helper-modules/stripe/stripe.module';
 import { CouponUsage, CouponUsageSchema } from './coupon.entity';
 import { AuthModule } from 'apps/root/src/auth/auth.module';
+import { SqsModule } from 'utils/helper-modules/sns/sqs.module';
 
 @Module({
   imports: [
@@ -13,7 +14,8 @@ import { AuthModule } from 'apps/root/src/auth/auth.module';
     { name: CouponUsage.name, schema: CouponUsageSchema }
     ]),
     StripeModule,
-    AuthModule
+    AuthModule,
+    SqsModule
   ],
   controllers: [CouponController],
   providers: [CouponService],

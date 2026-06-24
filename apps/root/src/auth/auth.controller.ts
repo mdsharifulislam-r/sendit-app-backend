@@ -16,6 +16,7 @@ import {
 } from './auth.dto';
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { Auth } from 'utils/guards/auth.guard';
+import { SocialLoginDto } from '../user/user.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -29,6 +30,15 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials.' })
   login(@Body() payload: LoginDto) {
     return this.authService.login(payload);
+  }
+
+  @Post('social-signin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Social signin' })
+  @ApiResponse({ status: 200, description: 'Social signin successful.' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials.' })
+  socialSignIn(@Body() payload: SocialLoginDto) {
+    return this.authService.socialSignIn(payload);
   }
 
   @Post('verify-otp')

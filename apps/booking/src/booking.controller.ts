@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { BookingService } from './booking.service';
-import { CancelBookingDto, ChangeBookingStatusDto, CreateBookingDto, DeliveryConfirmationDto, PickupConditionDto, PlaceBookingDto } from './booking.dto';
+import { CancelBookingDto, ChangeBookingStatusDto, CreateBookingDto, DeliveryConfirmationDto, GetEarningsAndClientAmount, PickupConditionDto, PlaceBookingDto } from './booking.dto';
 import { FileUpload } from 'utils/decorators/file-uploader.decorator';
 import { GetFile } from 'utils/decorators/get-file.decorator';
 import { Auth } from 'utils/guards/auth.guard';

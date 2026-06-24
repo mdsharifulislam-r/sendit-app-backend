@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Types, Schema as MongooseSchema } from 'mongoose';
 import { FilePathType } from './communication.dto';
 
 export type NotificationDocument = Notification & Document;
@@ -8,8 +8,8 @@ export type NotificationDocument = Notification & Document;
 export class Notification {
   _id: Types.ObjectId;
 
-  @Prop({ type: [String], default: null })
-  receiver: string[];
+  @Prop({ type: [MongooseSchema.Types.ObjectId], default: [], ref: "User" })
+  receiver: Types.ObjectId[];
 
   @Prop({ required: true })
   title: string;
@@ -20,8 +20,8 @@ export class Notification {
   @Prop({ type: Boolean, default: false })
   isRead: boolean;
 
-  @Prop({ type: [String], default: null })
-  readers: string[];
+  @Prop({ type: [MongooseSchema.Types.ObjectId], default: [], ref: "User" })
+  readers: Types.ObjectId[];
 
   @Prop({ type: String, enum: FilePathType, default: null })
   filePath: FilePathType;

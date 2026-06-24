@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -17,7 +18,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { UserService } from './user.service';
-import { ChangeEmailDto, ChangeEmailVerifyDto, CompleteKycVerificationDto, CreateUserDto, UpdateProfileDto } from './user.dto';
+import { ChangeEmailDto, ChangeEmailVerifyDto, CompleteKycVerificationDto, CreateUserDto, DeleteAccountDto, UpdateProfileDto } from './user.dto';
 import { USER_ROLES } from 'utils/enums/user';
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { Auth } from 'utils/guards/auth.guard';
@@ -112,6 +113,18 @@ export class UserController {
   @SqsConsumer('email')
   handleUserCreated(data: { userId: string }) {
     console.log('User created:', data.userId);
+  }
+
+  @Delete('account-delete')
+  @Auth()
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete account' })
+  @ApiResponse({ status: 200, description: 'Account deleted successfully.' })
+  deleteAccount(
+    @CurrentUser() user: any,
+    @Body() payload: DeleteAccountDto,
+  ) {
+    return this.userService.accountDelete(payload, user.id);
   }
 
 }

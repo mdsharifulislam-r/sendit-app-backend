@@ -44,6 +44,7 @@ import { ReportModule } from './report/report.module';
     ChatModule,
     MessageModule,
     ReportModule,
+    AuthModule
   ],
   controllers: [CommunicationController],
   providers: [CommunicationService],

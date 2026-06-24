@@ -19,6 +19,15 @@
   "monorepo": true,
   "root": "apps/root",
   "projects": {
+    "admin": {
+      "type": "application",
+      "root": "apps/admin",
+      "entryFile": "main",
+      "sourceRoot": "apps/admin/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/admin/tsconfig.app.json"
+      }
+    },
     "booking": {
       "type": "application",
       "root": "apps/booking",
@@ -53,6 +62,15 @@
       "sourceRoot": "apps/root/src",
       "compilerOptions": {
         "tsConfigPath": "apps/root/tsconfig.app.json"
+      }
+    },
+    "gateway": {
+      "type": "application",
+      "root": "apps/gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/gateway/tsconfig.app.json"
       }
     },
     "trip": {

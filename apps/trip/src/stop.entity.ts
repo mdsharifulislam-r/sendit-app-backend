@@ -7,7 +7,7 @@ export type StopDetailsDocument = StopDetails & Document;
 export class StopDetails {
   _id: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ required: false })
   id: string;
 
   @Prop({ type: String, default: null })
@@ -33,3 +33,11 @@ export class StopDetails {
 }
 
 export const StopDetailsSchema = SchemaFactory.createForClass(StopDetails);
+
+StopDetailsSchema.index({ location: '2dsphere' })
+
+StopDetailsSchema.pre('save', function () {
+  if (!this.id) {
+    this.id = 'Stop' + Math.floor(Math.random() * 1000000)
+  }
+});

@@ -9,6 +9,7 @@ import sendResponse from 'utils/helper/sendResponse';
 import { CreateNotificationDto, FilePathType } from '../communication.dto';
 import QueryBuilder from 'utils/queryBuilder/queryBuilder';
 import { CacheService } from 'utils/helper-modules/cache/cache.service';
+import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
 
 @Injectable()
 export class ReportService {
@@ -42,6 +43,13 @@ export class ReportService {
             filePath: FilePathType.REPORT,
             referenceId: createdReport._id.toString(),
         })
+        this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+            action: 'Report Submitted',
+            user: user as any,
+            old_value: ``,
+            new_value: ``,
+            reason: report.description
+        });
         await this.cacheService.deleteByPattern('report')
         return sendResponse({
             message: 'report created successfully',

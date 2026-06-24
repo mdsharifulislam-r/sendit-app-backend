@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types, Schema as MongooseSchema } from 'mongoose';
-import { USER_ROLES } from 'utils/enums/user';
+import { ADMIN_SUB_ROLE, SOCIAL_PLATFORM, USER_ROLES } from 'utils/enums/user';
 import { hashPassword } from 'utils/helper/bycrptHelper';
 
 export type UserDocument = User & Document;
@@ -43,6 +43,12 @@ export class User {
 
   @Prop({ type: String, enum: USER_ROLES, default: USER_ROLES.TRAVELER })
   role: USER_ROLES;
+
+  @Prop({ type: String, default: null })
+  admin_sub_role: ADMIN_SUB_ROLE;
+
+  @Prop({ type: [String], default: [] })
+  permissions: string[];
 
   @Prop({ type: String, default: null })
   contact: string;
@@ -96,6 +102,16 @@ export class User {
   @Prop({ default: false })
   verified: boolean;
 
+  @Prop({ default: false })
+  is_social_login: boolean;
+
+  @Prop({ type: String, default: null })
+  app_id: string;
+
+
+  @Prop({ type: String, enum: SOCIAL_PLATFORM })
+  social_platform: SOCIAL_PLATFORM
+
   @Prop({
     type: new MongooseSchema(
       {
@@ -128,6 +144,20 @@ export class User {
 
   @Prop({ type: String, default: null })
   stripe_account_id: string;
+
+  @Prop({ type: Number, default: 0 })
+  avg_rating: number;
+
+  @Prop({ type: Number, default: 0 })
+  review_count: number;
+
+  @Prop({ type: Number, default: 0 })
+  trip_count: number;
+
+  @Prop({ type: Number, default: 0 })
+  kyc_submission_count: number
+
+
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

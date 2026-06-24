@@ -16,6 +16,7 @@ export enum TRIP_STATUS {
     PUBLISHED = "published",
     DELETED = "deleted",
     ARCHIVED = "archived",
+    CANCELLED = "cancelled"
 }
 
 export enum TRANSPORT_TYPE {
@@ -495,5 +496,79 @@ export class SearchTripDto {
 }
 
 
+export class EditTripDto {
+    @ApiPropertyOptional({
+        description: "Trip Data is required",
+        example: `{
+        "departure_address": "123 Main St",
+        "departure_location": [123, 456],
+        "departure_date": "2025-01-01T12:00:00.000Z",
+        "return_address": "456 Oak St",
+        "return_location": [789, 101],
+        "return_date": "2025-01-05T12:00:00.000Z",
+        "stops": [
+            {
+                "address": "123 Main St",
+                "location": [123, 456],
+                "date": "2025-01-01T12:00:00.000Z"
+            }
+        ],
+        "carry_type": "Document",
+        "pricing_details": {
+            "currency": "BDT",
+            "price_per_kg": 333,
+            "price_per_document": 444
+        },
+        "transport_type": "Car",
+        "vehicle_details": {
+            "type": "Car",
+            "number": "123456",
+            "name": "Toyota"
+        },
+        "ticket_image": "ticket_image.jpg",
+        "trip_rules": [
+            {
+                "title": "Trip Rule 1",
+                "content": "Trip Rule 1 Content"
+            }
+        ],
+        "trip_description": "Trip Description"
+    }`,
+    })
+    @IsString()
+    @Refine({
+        validator: (value) => {
+            const data = plainToInstance(CreateTripDto, JSON.parse(value))
+            const errors = validateSync(data)
+            if (errors.length) {
+                throw new ApiError(HttpStatus.BAD_REQUEST, errors[0]?.constraints ? Object.values(errors[0].constraints)[0] : 'Invalid JSON')
+            }
+
+            return true;
+        }
+    })
+    data: string
+
+    @ApiPropertyOptional({
+        description: "Ticket Image is required",
+        type: 'string',
+        format: 'binary',
+    })
+    @IsOptional()
+    @IsString()
+    ticket_image: string
+
+}
+
+
+export class CancelTripDto {
+    @ApiProperty({
+        description: "Cancel Reason is required",
+        example: "Cancel Reason",
+    })
+    @IsNotEmpty()
+    @IsString()
+    cancel_reason: string
+}
 
 

@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsArray, IsBooleanString, IsDateString, IsEnum, IsNotEmpty, IsNumberString, IsOptional, IsString } from "class-validator";
+import { Period } from "utils/helper/dateHelper";
 
 export enum PACKAGE_SIZE {
     SMALL = "Small",
@@ -338,4 +339,15 @@ export class LocationUpdateDto {
     })
     @IsNotEmpty()
     location: { latitude: number, longitude: number }
+}
+
+
+export class GetEarningsAndClientAmount {
+    @ApiProperty({
+        description: "Give the range",
+        enum: ['weekly', 'monthly', 'daily'],
+        example: "weekly",
+    })
+    @IsEnum(['weekly', 'monthly', 'daily'])
+    range: 'weekly' | 'monthly' | 'daily'
 }

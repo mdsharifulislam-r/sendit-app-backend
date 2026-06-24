@@ -10,6 +10,7 @@ import { StopDetails, StopDetailsSchema } from 'apps/trip/src/stop.entity';
 import { SqsModule } from 'utils/helper-modules/sns/sqs.module';
 import { AuthModule } from 'apps/root/src/auth/auth.module';
 import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
+import { RiskSettings, RiskSettingsSchema } from 'apps/admin/src/risk-settings/risk-settings.entity';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
       { name: Booking.name, schema: BookingSchema },
       { name: Trip.name, schema: TripSchema },
       { name: StopDetails.name, schema: StopDetailsSchema },
+      { name: RiskSettings.name, schema: RiskSettingsSchema }
     ]),
     SqsModule,
     AuthModule,

@@ -1,6 +1,6 @@
-import { Body, Controller, Get, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { TripService } from './trip.service';
-import { CreateTripDto, SearchTripDto, TempTripDto } from './trip.dto';
+import { CancelTripDto, CreateTripDto, EditTripDto, SearchTripDto, TempTripDto } from './trip.dto';
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { Auth } from 'utils/guards/auth.guard';
 import { USER_ROLES } from 'utils/enums/user';
@@ -12,7 +12,7 @@ import { CacheService } from 'utils/helper-modules/cache/cache.service';
 import { ApiError } from 'utils/errors/api-error';
 import sendResponse from 'utils/helper/sendResponse';
 
-@Controller()
+@Controller('trip')
 export class TripController {
   constructor(private readonly tripService: TripService, private readonly cacheService: CacheService) { }
 
@@ -68,14 +68,68 @@ export class TripController {
     })
   }
 
-  @Get(":id")
+  @Get("recent-searches")
   @Auth(USER_ROLES.TRANSPORTER, USER_ROLES.TRAVELER)
-  async getSingleTrip(@Param("id") id: string, @Query('session_id') session_id?: string) {
+  getRecentSearches(@CurrentUser() user: any, @Query() query: any) {
+    return this.tripService.getUserRecentSearch(user.id, query)
+  }
+
+
+  @Get('upcomming')
+  @Auth(USER_ROLES.TRANSPORTER, USER_ROLES.TRAVELER)
+  async getUpcommingTrips(@CurrentUser() user: any, @Query() query: any) {
+    const data = await this.tripService.getUpcommingTrips(user.id, query) as any
     return sendResponse({
       statusCode: HttpStatus.OK,
-      data: await this.tripService.getSingleTripDetails(id, session_id),
+      data: data.data,
+      success: true,
+      message: 'Upcomming trips fetched successfully',
+      pagination: data.pagination
+    })
+  }
+
+  @Get('todays')
+  @Auth(USER_ROLES.TRANSPORTER, USER_ROLES.TRAVELER)
+  async getTodaysTrips(@CurrentUser() user: any, @Query() query: any) {
+    const data = await this.tripService.getTodaysTrips(user.id, query) as any
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      data: data.data,
+      success: true,
+      message: 'Todays trips fetched successfully',
+      pagination: data.pagination
+    })
+  }
+
+  @Get(":id")
+  @Auth(USER_ROLES.TRANSPORTER, USER_ROLES.TRAVELER)
+  async getSingleTrip(@Param("id") id: string, @Query('session_id') session_id: string,
+    @CurrentUser() user: any
+  ) {
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      data: await this.tripService.getSingleTripDetails(id, session_id, user.id),
       success: true,
       message: 'Trip details fetched successfully',
     });
   }
+
+  @Patch(':id')
+  @Auth(USER_ROLES.TRANSPORTER, USER_ROLES.TRAVELER)
+  @FileUpload({
+    fieldName: "ticket_image"
+  })
+  editTrip(@Param("id") id: string, @Body() body: TempTripDto) {
+    const data = JSON.parse(body.data)
+    return this.tripService.editTripDetails(id, data)
+  }
+
+  @Delete(':id')
+  @Auth(USER_ROLES.TRANSPORTER, USER_ROLES.TRAVELER)
+  cancelTrip(@Param("id") id: string, @Body() body: CancelTripDto) {
+    return this.tripService.cancelTrip(id, body.cancel_reason)
+  }
+
 }
+
+
