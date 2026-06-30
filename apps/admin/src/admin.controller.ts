@@ -95,5 +95,11 @@ export class AdminController {
     return this.adminService.getSingleTransaction(id)
   }
 
+  @Get('overview')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  getOverview() {
+    return this.adminService.getAllOverViewOfPlatform()
+  }
+
 
 }

@@ -16,6 +16,7 @@ import { SqsModule } from '../../../utils/helper-modules/sns/sqs.module';
 import { QrModule } from '../../../utils/helper-modules/qr/qr.module';
 import { TransportAgreementModule } from './transport-agreement/transport-agreement.module';
 import { AddressModule } from './address/address.module';
+import { DeviceModule } from './device/device.module';
 
 
 @Module({
@@ -61,7 +62,8 @@ import { AddressModule } from './address/address.module';
     SqsModule,
     QrModule,
     TransportAgreementModule,
-    AddressModule
+    AddressModule,
+    DeviceModule
     // KafkaModule,
   ],
   controllers: [AppController],

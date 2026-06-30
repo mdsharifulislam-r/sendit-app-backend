@@ -13,6 +13,7 @@ export enum TRANSACTION_TYPE {
   WITHDRAW = 'Withdraw',
   TRANSFER = 'Transfer',
   PAYMENT = 'Payment',
+  REFUND = 'Refund'
 }
 
 export enum TRANSACTION_PAYMENT_TYPE {

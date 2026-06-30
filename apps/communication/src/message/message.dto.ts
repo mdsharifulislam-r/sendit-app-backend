@@ -17,7 +17,7 @@ export class CreateMessageDto {
         description: 'Please provide a valid chat id.',
         example: '123456789012345678901234'
     })
-    @IsMongoId({message:"Please provide a valid chat id."})
+    @IsMongoId({ message: "Please provide a valid chat id." })
     chat: Types.ObjectId;
 
     @ApiProperty({
@@ -27,7 +27,7 @@ export class CreateMessageDto {
         enum: MESSAGE_TYPE
     })
     @IsEnum(MESSAGE_TYPE)
-    type:MESSAGE_TYPE
+    type: MESSAGE_TYPE
 
     @IsOptional()
     @IsString()
@@ -44,4 +44,6 @@ export class CreateMessageDto {
         format: 'binary',
     })
     documents?: string[]
+
+    report?: Types.ObjectId
 }

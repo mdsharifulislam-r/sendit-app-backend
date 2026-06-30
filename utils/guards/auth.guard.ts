@@ -10,15 +10,23 @@ import { JwtService } from '@nestjs/jwt';
 import { USER_ROLES } from '../enums/user';
 import { ApiError } from '../errors/api-error';
 import { Roles } from './roles.guard';
+import { InjectModel } from '@nestjs/mongoose';
+import { Device, DeviceDocument } from 'apps/root/src/device/device.entity';
+import { Model } from 'mongoose';
+import { CacheService } from 'utils/helper-modules/cache/cache.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
-  ) {}
+    @InjectModel(Device.name)
+    private readonly deviceModel: Model<DeviceDocument>,
+    private readonly cacheService: CacheService
 
-  canActivate(context: ExecutionContext): boolean {
+  ) { }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const roles = this.reflector.get<USER_ROLES[]>('roles', context.getHandler());
     const request = context.switchToHttp().getRequest();
     const authHeader: string | undefined = request.headers.authorization;
@@ -42,6 +50,29 @@ export class AuthGuard implements CanActivate {
           `Access denied. Required role(s): ${roles.join(', ')}`,
         );
       }
+
+      if (payload.deviceId) {
+        const cachedDeviceBlocked = await this.cacheService.get(`blocked_device:${payload.id}:${payload.deviceId}`)
+        if (cachedDeviceBlocked) {
+          await this.cacheService.deleteByPattern(`blocked_device:${payload.id}:${payload.deviceId}`)
+          await this.deviceModel.deleteOne({ device_id: payload.deviceId, user: payload.id })
+          throw new ApiError(
+            HttpStatus.FORBIDDEN,
+            'Your device has been blocked. Please contact with admin',
+          );
+        }
+
+        const device = await this.deviceModel.countDocuments({ device_id: payload.deviceId, user: payload.id, status: 'blocked' });
+
+        if (device) {
+          await this.deviceModel.deleteOne({ device_id: payload.deviceId, user: payload.id });
+          throw new ApiError(
+            HttpStatus.FORBIDDEN,
+            'Your device has been blocked. Please contact with admin',
+          );
+        }
+      }
+
 
       return true;
     } catch (err) {

@@ -23,7 +23,6 @@ export class MessageService {
 
     async sendMessage(payload: CreateMessageDto) {
         const chat = await this.chatModel.findById(payload.chat).lean()
-
         if (!chat) {
             throw new ApiError(404, "chat not found")
         }
@@ -34,7 +33,12 @@ export class MessageService {
 
 
         if (payload.images) {
-            payload.images = await this.s3Service.uploadMultipleFiles(payload.images)
+            if (!payload.images?.some((img) => {
+                return img.includes('https')
+            })) {
+                payload.images = await this.s3Service.uploadMultipleFiles(payload.images)
+
+            }
         }
 
         if (payload.documents) {
@@ -57,6 +61,7 @@ export class MessageService {
             this.socketService.emit(`chat-update::${participant}`, message)
         })
 
+
         return sendResponse({
             statusCode: 200,
             success: true,
@@ -72,9 +77,9 @@ export class MessageService {
         if (!chat) {
             throw new ApiError(404, "chat not found")
         }
-        if (chat.participants.filter((participant) => participant.toString() == userId).length == 0) {
-            throw new ApiError(403, "you can't access this chat")
-        }
+        // if (chat.participants.filter((participant) => participant.toString() == userId).length == 0) {
+        //     throw new ApiError(403, "you can't access this chat")
+        // }
 
         await this.messageModel.updateMany(
             { chat: chatId, sender: { $ne: new Types.ObjectId(userId) }, readBy: { $nin: [userId] } },

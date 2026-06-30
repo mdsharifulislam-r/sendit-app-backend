@@ -279,4 +279,9 @@ export class WalletService {
             throw error;
         }
     }
+
+    @SqsConsumer('add.balance')
+    async addBalanceUsingUserId(payload:{userId:string,amount:number}){
+        await this.handler.addBalanceUsingUserId(payload)
+    }
 }

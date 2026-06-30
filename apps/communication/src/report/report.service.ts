@@ -28,28 +28,31 @@ export class ReportService {
             ...report,
             user
         })
-        this.snsService.publish<CreateNotificationDto>('notification.send', {
-            title: 'Your report has been submitted successfully',
-            message: `Your report has been submitted successfully`,
-            isRead: false,
-            receiver: [user],
-            filePath: FilePathType.REPORT,
-            referenceId: createdReport._id.toString(),
-        })
-        this.snsService.publish<CreateNotificationDto>('notification.send', {
-            title: 'New report has been submitted',
-            message: `${createdReport.report_id} has been submitted. please check it.`,
-            isRead: false,
-            filePath: FilePathType.REPORT,
-            referenceId: createdReport._id.toString(),
-        })
-        this.snsService.publish<CreateAuditLogsDto>('audit.create', {
-            action: 'Report Submitted',
-            user: user as any,
-            old_value: ``,
-            new_value: ``,
-            reason: report.description
-        });
+        await Promise.all([
+            this.snsService.publish('chat.report.create', createdReport),
+            this.snsService.publish<CreateNotificationDto>('notification.send', {
+                title: 'Your report has been submitted successfully',
+                message: `Your report has been submitted successfully`,
+                isRead: false,
+                receiver: [user],
+                filePath: FilePathType.REPORT,
+                referenceId: createdReport._id.toString(),
+            }),
+            this.snsService.publish<CreateNotificationDto>('notification.send', {
+                title: 'New report has been submitted',
+                message: `${createdReport.report_id} has been submitted. please check it.`,
+                isRead: false,
+                filePath: FilePathType.REPORT,
+                referenceId: createdReport._id.toString(),
+            }),
+            this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+                action: 'Report Submitted',
+                user: user as any,
+                old_value: ``,
+                new_value: ``,
+                reason: report.description
+            })
+        ]);
         await this.cacheService.deleteByPattern('report')
         return sendResponse({
             message: 'report created successfully',

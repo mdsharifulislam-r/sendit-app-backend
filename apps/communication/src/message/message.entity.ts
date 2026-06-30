@@ -18,6 +18,9 @@ export class Message {
     @Prop({ required: false, type: [String] })
     documents: string[]
 
+    @Prop({ required: false, type: MongooseSchema.Types.ObjectId, ref: 'Report' })
+    report: Types.ObjectId
+
     @Prop({ required: false, type: [MongooseSchema.Types.ObjectId], ref: 'User' })
     readBy: Types.ObjectId[]
 

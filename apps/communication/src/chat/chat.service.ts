@@ -8,11 +8,17 @@ import QueryBuilder from 'utils/queryBuilder/queryBuilder';
 import { User } from 'apps/root/src/user/user.entity';
 import { ApiError } from 'utils/errors/api-error';
 import { CHAT_STATUS } from './chat.dto';
+import { CreateReportDto } from '../report/report.dto';
+import { Report } from '../report/report.entity';
+import { MessageService } from '../message/message.service';
+import { MESSAGE_TYPE } from '../message/message.dto';
 
 @Injectable()
 export class ChatService {
     constructor(
         @InjectModel(Chat.name) private chatModel: Model<Chat>,
+        @InjectModel(Report.name) private reportModel: Model<Report>,
+        private readonly messageService: MessageService
     ) { }
 
     @SqsConsumer('chat.create')
@@ -109,6 +115,44 @@ export class ChatService {
             statusCode: 200,
             data
         })
+    }
+
+    @SqsConsumer('chat.report.create')
+    async createReportChat(payload: Report) {
+        try {
+            console.log(payload);
+            const exsistSupportChat = await this.chatModel.findOne({ participants: { $in: [payload.user] }, is_support_message: true })
+
+            if (exsistSupportChat) {
+                const report = await this.reportModel.findOneAndUpdate({ report_id: payload.report_id }, { chat: exsistSupportChat._id })
+                this.messageService.sendMessage({
+                    chat: exsistSupportChat._id,
+                    message: payload.description,
+                    sender: payload.user,
+                    type: MESSAGE_TYPE.TEXT,
+                    images: payload.attachments,
+                    receiver: null as any,
+                    report: report?._id!
+                })
+                return
+            }
+            const data = await this.chatModel.create({
+                participants: [payload.user],
+                is_support_message: true
+            })
+            const report = await this.reportModel.findOneAndUpdate({ report_id: payload.report_id }, { chat: data._id })
+
+            this.messageService.sendMessage({
+                chat: data._id,
+                message: payload.description,
+                sender: payload.user,
+                type: MESSAGE_TYPE.TEXT,
+                images: payload.attachments,
+                receiver: null as any,
+            })
+        } catch (error) {
+            console.log(error)
+        }
     }
 
 }

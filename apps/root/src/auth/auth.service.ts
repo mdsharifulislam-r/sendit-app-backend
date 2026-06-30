@@ -21,6 +21,7 @@ import { SnsService } from 'utils/helper-modules/sns/sns.service';
 import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
 import { SocialLoginDto } from '../user/user.dto';
 import { USER_ROLES } from 'utils/enums/user';
+import { CreateDeviceDto } from '../device/device.dto';
 
 @Injectable()
 export class AuthService {
@@ -116,10 +117,18 @@ export class AuthService {
       throw new ApiError(HttpStatus.UNAUTHORIZED, 'Invalid email or password');
     }
 
+    if (payload.deviceInfo) {
+      await this.snsService.publish<CreateDeviceDto>('device.create', {
+        ...payload.deviceInfo,
+        user: user._id.toString(),
+      })
+    }
+
     const accessToken = this.jwtService.sign({
       id: user._id.toString(),
       role: user.role,
       email: user.email,
+      deviceId: payload?.deviceInfo?.device_id ? payload.deviceInfo.device_id : null,
     });
 
     return sendResponse({
@@ -253,6 +262,13 @@ export class AuthService {
         email: user.email,
       });
 
+      if (dto.device_info) {
+        await this.snsService.publish<CreateDeviceDto>('device.create', {
+          ...dto.device_info,
+          user: user._id.toString(),
+        })
+      }
+
       return sendResponse({
         statusCode: HttpStatus.OK,
         message: 'Login successful',
@@ -265,7 +281,15 @@ export class AuthService {
       id: existUser._id.toString(),
       role: existUser.role,
       email: existUser.email,
+      deviceId: dto?.device_info?.device_id ? dto.device_info.device_id : null,
     });
+
+    if (dto.device_info) {
+      await this.snsService.publish<CreateDeviceDto>('device.create', {
+        ...dto.device_info,
+        user: existUser._id.toString(),
+      })
+    }
 
     return sendResponse({
       statusCode: HttpStatus.OK,

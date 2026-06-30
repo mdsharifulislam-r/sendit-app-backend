@@ -14,6 +14,11 @@ import { Trip, TripDocument } from 'apps/trip/src/trip.entity';
 import { TRIP_STATUS } from 'apps/trip/src/trip.dto';
 import { Transaction, TRANSACTION_STATUS, TRANSACTION_TYPE, TransactionDocument } from 'apps/payment/src/transaction/transaction.entity';
 import { CreateAdminDto, UpdateAdminDto } from './admin.dto';
+import { BOOKING_STATUS } from 'apps/booking/src/booking.dto';
+import { Booking, BookingDocument } from 'apps/booking/src/booking.entity';
+import { Report, ReportDocument } from 'apps/communication/src/report/report.entity';
+import { Ticket, TicketDocument } from './ticket/ticket.entity';
+import { RiskyItems, RiskyItemsDocument } from './risk-settings/risk-settings.entity';
 
 @Injectable()
 export class AdminService {
@@ -26,6 +31,14 @@ export class AdminService {
     private tripModel: Model<TripDocument>,
     @InjectModel(Transaction.name)
     private transactionModel: Model<TransactionDocument>,
+    @InjectModel(Booking.name)
+    private bookingModel: Model<BookingDocument>,
+    @InjectModel(Report.name)
+    private reportModel: Model<ReportDocument>,
+    @InjectModel(Ticket.name)
+    private ticketModel: Model<TicketDocument>,
+    @InjectModel(RiskyItems.name)
+    private riskyItemModel: Model<RiskyItemsDocument>,
     private snsService: SnsService,
   ) { }
 
@@ -415,6 +428,33 @@ export class AdminService {
         total_earnings: total_earnings[0]?.total_amount || 0,
         pending_earnings: pending_earnings[0]?.total_amount || 0,
         total_withdraw_earnings: total_withdraw_earnings[0]?.total_amount || 0,
+      },
+      success: true,
+    })
+
+  }
+
+  async getAllOverViewOfPlatform() {
+    const [total_users, total_trips, total_bookings, total_transactions, total_reports, total_tickets, total_risky_items] = await Promise.all([
+      this.userModel.countDocuments({ status: { $ne: 'delete' } }),
+      this.tripModel.countDocuments({ status: TRIP_STATUS.PUBLISHED }),
+      this.bookingModel.countDocuments({ status: { $ne: BOOKING_STATUS.CANCELLED } }),
+      this.transactionModel.countDocuments({ status: TRANSACTION_STATUS.COMPLETED }),
+      this.reportModel.countDocuments({ status: 'open' }),
+      this.ticketModel.countDocuments({ status: 'open' }),
+      this.riskyItemModel.countDocuments()
+    ])
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      message: 'Platform overview fetch successfully',
+      data: {
+        total_users,
+        total_trips,
+        total_bookings,
+        total_transactions,
+        total_reports,
+        total_tickets,
+        total_risky_items
       },
       success: true,
     })

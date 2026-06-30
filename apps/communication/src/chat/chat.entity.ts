@@ -34,6 +34,8 @@ export class Chat {
     @Prop({ type: String, enum: CHAT_TYPE, default: CHAT_TYPE.SINGLE })
     type: CHAT_TYPE
 
+    @Prop({ type: Boolean, default: false })
+    is_support_message: boolean
 
     @Prop({ type: String, default: null })
     name: string

@@ -124,5 +124,19 @@ export class WalletHandler {
     }
 
 
+    async addBalanceUsingUserId(payload: { userId: string, amount: number }) {
+        const { userId, amount } = payload
+        const wallet = await this.walletModel.findOne({ user: userId })
+
+        if (!wallet) {
+            const createWallet = await this.walletModel.create({ user: userId, balance: Math.round(amount * 100) })
+            console.log(createWallet);
+            return
+        }
+        await this.walletModel.updateOne({ user: userId }, { $inc: { balance: amount * 100 } })
+        return
+    }
+
+
 
 }

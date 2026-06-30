@@ -10,6 +10,8 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType, OmitType } from '@nestjs/swagger';
 import { SOCIAL_PLATFORM, USER_ROLES } from 'utils/enums/user';
+import { CreateDeviceDto } from '../device/device.dto';
+import { Type } from 'class-transformer';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'John Doe', description: 'Full name of the user' })
@@ -107,6 +109,11 @@ export class SocialLoginDto {
   @ApiProperty({ example: 'app_id', description: 'App ID' })
   @IsString()
   app_id!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => CreateDeviceDto)
+  device_info!: CreateDeviceDto
 
 }
 

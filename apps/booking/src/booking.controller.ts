@@ -146,4 +146,22 @@ export class BookingController {
       statusCode: 200,
     })
   }
+
+
+  @Get('details/:bookingId')
+  @Auth()
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get single booking details',
+    description: 'Get single booking details',
+  })
+  async getSingleBookingDetails(@Param('bookingId') bookingId: string, @CurrentUser() user: any) {
+    const res = await this.bookingService.getSingleBookingDetails(bookingId, user.id)
+    return sendResponse({
+      message: 'Get Single Booking Details',
+      success: true,
+      statusCode: 200,
+      data: res
+    })
+  }
 }

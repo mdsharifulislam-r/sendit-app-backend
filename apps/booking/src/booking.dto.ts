@@ -23,6 +23,7 @@ export enum BOOKING_STATUS {
     PENDING = "Pending",
     CONFIRMED = "Confirmed",
     CANCELLED = "Cancelled",
+    REFUNDED = "Refunded",
     DELIVERED = "Delivered",
     REJECTED = 'Rejected'
 }

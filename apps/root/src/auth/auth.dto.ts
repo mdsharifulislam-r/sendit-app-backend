@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { CreateDeviceDto } from '../device/device.dto';
+import { Type } from 'class-transformer';
 
 export class VerifyEmailDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -34,6 +36,11 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @Type(() => CreateDeviceDto)
+  deviceInfo?: CreateDeviceDto
 }
 
 export class AuthResetPasswordDto {

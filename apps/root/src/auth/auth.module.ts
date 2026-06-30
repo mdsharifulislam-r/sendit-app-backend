@@ -8,12 +8,17 @@ import { User, UserSchema, ResetToken, ResetTokenSchema } from '../user/user.ent
 import { EmailModule } from '../../../../utils/helper-modules/email/email.module';
 import { AuthGuard } from 'utils/guards/auth.guard';
 import { SqsModule } from 'utils/helper-modules/sns/sqs.module';
+import { Device, DeviceSchema } from '../device/device.entity';
+import { CacheService } from 'utils/helper-modules/cache/cache.service';
+import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
+
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: ResetToken.name, schema: ResetTokenSchema },
+      { name: Device.name, schema: DeviceSchema }
     ]),
     EmailModule,
     JwtModule.registerAsync({
@@ -25,10 +30,11 @@ import { SqsModule } from 'utils/helper-modules/sns/sqs.module';
         },
       }),
     }),
-    SqsModule
+    SqsModule,
+    RedisCacheModule
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthGuard],
-  exports: [JwtModule, AuthGuard],
+  exports: [JwtModule, AuthGuard, MongooseModule, RedisCacheModule],
 })
 export class AuthModule { }

@@ -15,6 +15,9 @@ export class Report {
     attachments: string[]
     @Prop({ required: false, type: String, enum: ['open', 'closed'], default: 'open' })
     status: "open" | "closed"
+
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Chat' })
+    chat: Types.ObjectId
 }
 
 export type ReportDocument = Report & Document

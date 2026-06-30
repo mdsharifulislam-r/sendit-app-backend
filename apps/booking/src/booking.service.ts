@@ -573,6 +573,19 @@ export class BookingService {
     return { bookings, pagination }
   }
 
+  async getSingleBookingDetails(bookingId: string, userId: string) {
+    const booking = await this.bookingModel.findById(bookingId).populate([
+      { path: 'transporter', select: 'name email image' },
+      { path: 'sender', select: 'name email image' },
+      { path: 'receiver', select: 'name email image' },
+    ]).lean()
+    if (!booking) {
+      throw new ApiError(404, 'Booking not found')
+    }
+
+    return booking
+  }
+
 
 
 
