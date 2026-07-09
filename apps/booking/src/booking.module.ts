@@ -51,5 +51,6 @@ import { PricingRulesModule } from 'apps/payment/src/pricing-rules/pricing-rules
   ],
   controllers: [BookingController],
   providers: [BookingService, BookingSocketHandler],
+  exports: [BookingService]
 })
 export class BookingModule { }

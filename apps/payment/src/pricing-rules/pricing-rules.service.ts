@@ -88,37 +88,53 @@ export class PricingRulesService {
         })
     }
 
-    async calculatePricingFare(subtotal: number, discount: number = 0) {
-        let platform_fee = await this.pricingRulesModel.findOne()
-        if (!platform_fee) {
-            platform_fee = {
-                platform_fee: 0,
-                tax_amount: 0
-            } as any
-        }
+    async calculatePricingFare(subtotal: number, discount = 0) {
+        const pricingRule = await this.pricingRulesModel.findOne();
 
-        if (!discount) {
-            const platform_charge = subtotal * ((platform_fee?.platform_fee || 0) / 100)
-            const tax_amount = subtotal * ((platform_fee?.tax_amount || 0) / 100)
-            return {
-                subtotal: subtotal,
-                discount: 0,
-                platform_fee: platform_charge,
-                tax: tax_amount,
-                total: subtotal + platform_charge + tax_amount,
-            }
-        }
+        const platformFeePercentage = pricingRule?.platform_fee ?? 0;
+        const taxPercentage = pricingRule?.tax_amount ?? 0;
 
-        const total = subtotal - discount
-        const platform_charge = total * ((platform_fee?.platform_fee || 0) / 100)
-        const tax_amount = total * ((platform_fee?.tax_amount || 0) / 100)
+        // Prevent negative totals
+        discount = Math.max(0, Math.min(discount, subtotal));
+
+        const taxableSubtotal = subtotal - discount;
+
+        const round = (value: number) => Number(value.toFixed(2));
+
+        // Charges after discount
+        const platformFee = round(
+            taxableSubtotal * (platformFeePercentage / 100),
+        );
+
+        const tax = round(
+            taxableSubtotal * (taxPercentage / 100),
+        );
+
+        const total = round(
+            taxableSubtotal + platformFee + tax,
+        );
+
+        // Original total without discount
+        const originalPlatformFee = round(
+            subtotal * (platformFeePercentage / 100),
+        );
+
+        const originalTax = round(
+            subtotal * (taxPercentage / 100),
+        );
+
+        const withoutDiscountTotal = round(
+            subtotal + originalPlatformFee + originalTax,
+        );
+
         return {
-            subtotal: subtotal,
-            discount: discount,
-            platform_fee: platform_charge,
-            tax: tax_amount,
-            total: total + platform_charge + tax_amount,
-        }
+            subtotal: round(subtotal),
+            discount: round(discount),
+            platform_fee: platformFee,
+            tax,
+            total,
+            without_discount_total: withoutDiscountTotal,
+        };
     }
 
 

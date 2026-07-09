@@ -4,13 +4,15 @@ import { Request, Response } from 'express';
 import { SnsService } from 'utils/helper-modules/sns/sns.service';
 import { StripeService } from 'utils/helper-modules/stripe/stripe.service';
 import { WalletService } from './wallet/wallet.service';
+import { BookingService } from 'apps/booking/src/booking.service';
 
 @Injectable()
 export class PaymentService {
   constructor(private readonly stripeService: StripeService,
     private readonly configService: ConfigService,
     private readonly snsService: SnsService,
-    private readonly walletService: WalletService
+    private readonly walletService: WalletService,
+    private readonly bookingService: BookingService
   ) { }
 
   async handleWebhook(req: Request, res: Response) {
@@ -39,6 +41,10 @@ export class PaymentService {
 
           if (metadata?.wallet_id) {
             await this.walletService.dipositWallet({ wallet_id: metadata.wallet_id, amount: Number(metadata.amount) })
+          }
+
+          if (metadata?.userId && metadata?.trip_id && metadata.session_id) {
+            await this.bookingService.placeBooking(metadata.userId, metadata.session_id, metadata.trip_id, metadata?.coupon)
           }
 
           break;

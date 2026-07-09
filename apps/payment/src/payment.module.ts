@@ -12,6 +12,8 @@ import { TransactionModule } from './transaction/transaction.module';
 import { SqsModule } from 'utils/helper-modules/sns/sqs.module';
 import { CouponModule } from './coupon/coupon.module';
 import { PricingRulesModule } from './pricing-rules/pricing-rules.module';
+import { BookingService } from 'apps/booking/src/booking.service';
+import { BookingModule } from 'apps/booking/src/booking.module';
 
 @Module({
   imports: [
@@ -34,7 +36,8 @@ import { PricingRulesModule } from './pricing-rules/pricing-rules.module';
     TransactionModule,
     SqsModule,
     CouponModule,
-    PricingRulesModule
+    PricingRulesModule,
+    BookingModule
   ],
   controllers: [PaymentController],
   providers: [PaymentService, StripeService],

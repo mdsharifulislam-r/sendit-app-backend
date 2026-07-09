@@ -19,6 +19,7 @@ import { CouponService } from 'apps/payment/src/coupon/coupon.service';
 import { PricingRulesService } from 'apps/payment/src/pricing-rules/pricing-rules.service';
 import { getDatePeriodRange, Period } from 'utils/helper/dateHelper';
 import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
+import { StripeService } from 'utils/helper-modules/stripe/stripe.service';
 
 @Injectable()
 export class BookingService {
@@ -28,6 +29,7 @@ export class BookingService {
     private readonly snsService: SnsService,
     private readonly couponService: CouponService,
     private readonly pricingRulesService: PricingRulesService,
+    private readonly stripeService: StripeService,
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(Wallet.name) private readonly walletModel: Model<WalletDocument>,
     @InjectModel(Trip.name) private readonly tripModel: Model<TripDocument>,
@@ -64,6 +66,110 @@ export class BookingService {
   }
 
 
+  async placeBookingByDirectPayment(userId: string, session_id: string, trip_id: string, coupon?: string) {
+    const mongoSession = await this.connection.startSession();
+    mongoSession.startTransaction();
+    try {
+      let session: CreateBookingDto | null = await this.cacheService.get(`booking_session:${session_id}`);
+
+      for (let ses in session) {
+        if (['dropoff_location', 'pickup_location', 'receiver_information', 'sender_information'].includes(ses)) {
+          session[ses] = JSON.parse(session[ses] as any)
+        }
+      }
+
+      if (!session) {
+        throw new ApiError(HttpStatus.NOT_FOUND, 'Session not found');
+      }
+
+      const trip = await this.tripModel
+        .findOne({ id: trip_id })
+        .select('pricing_details user')
+        .populate({ path: 'user', select: 'id' })
+        .session(mongoSession);
+      if (!trip) {
+        throw new ApiError(HttpStatus.NOT_FOUND, 'Trip not found');
+      }
+
+
+
+      const total_price = trip.pricing_details.price_per_kg * session.weight;
+
+      const calculatePricingFare = await this.pricingRulesService.calculatePricingFare(total_price)
+
+      let discount = {} as any
+      if (coupon) {
+        discount = await this.couponService.checkIsAvailable(coupon, userId as any, total_price);
+      }
+
+      const stripeSession = await this.stripeService.getClient().checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Booking ${session_id}`,
+              },
+              unit_amount: Math.round(total_price * 100),
+            },
+            quantity: 1,
+          },
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Admin fee ${session_id}`,
+              },
+              unit_amount: Math.round(calculatePricingFare.platform_fee * 100),
+            },
+            quantity: 1,
+          },
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Tax`,
+              },
+              unit_amount: Math.round(calculatePricingFare.tax * 100),
+            },
+            quantity: 1,
+          }
+        ],
+        discounts: [
+          (coupon && discount.stripe_coupon_code && {
+            coupon: discount.stripe_coupon_code
+          })
+        ],
+        mode: 'payment',
+        success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `http://localhost:5173/payment-cancel`,
+        metadata: {
+          session_id,
+          trip_id,
+          coupon: coupon!,
+          userId
+        }
+      });
+
+
+      await mongoSession.commitTransaction();
+      mongoSession.endSession();
+      return sendResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Booking placed successfully',
+        success: true,
+        data: stripeSession.url,
+      });
+
+    } catch (error) {
+      console.log("🚀 ~ BookingService ~ placeBooking ~ error:", error);
+      await mongoSession.abortTransaction();
+      mongoSession.endSession();
+      throw error;
+    }
+  }
+
+
   async placeBooking(userId: string, session_id: string, trip_id: string, coupon?: string) {
     const mongoSession = await this.connection.startSession();
     mongoSession.startTransaction();
@@ -89,16 +195,10 @@ export class BookingService {
         throw new ApiError(HttpStatus.NOT_FOUND, 'Trip not found');
       }
 
-      const wallet = await this.walletModel
-        .findOne({ user: new Types.ObjectId(userId) })
-        .select('balance id')
-        .session(mongoSession);
-      if (!wallet) {
-        throw new ApiError(HttpStatus.NOT_FOUND, 'Wallet not found');
-      }
+
 
       const total_price = trip.pricing_details.price_per_kg * session.weight;
-      const balance = wallet.balance / 100;
+
 
 
 
@@ -110,17 +210,7 @@ export class BookingService {
       const service_charge_object = await this.pricingRulesService.calculatePricingFare(total_price, discount?.discount_amount)
 
 
-      const finalPrice = service_charge_object.total;
 
-      if (Number(finalPrice) > Number(balance)) {
-        throw new ApiError(HttpStatus.BAD_REQUEST, 'Insufficient balance');
-      }
-
-      await this.walletModel.findByIdAndUpdate(
-        wallet._id,
-        { balance: (Number(balance) - Number(finalPrice)) * 100 },
-        { session: mongoSession }
-      );
 
       const bookingId = `SNDB-BK-${Math.random().toString(36).substr(2, 9)}`;
       const booking = new this.bookingModel({

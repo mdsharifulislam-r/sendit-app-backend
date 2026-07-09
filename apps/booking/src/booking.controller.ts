@@ -37,7 +37,7 @@ export class BookingController {
   @Post('place-booking')
   @Auth(USER_ROLES.TRAVELER)
   placeBooking(@Body() data: PlaceBookingDto, @CurrentUser() user: any) {
-    return this.bookingService.placeBooking(user.id, data.session_id, data.trip_id, data?.coupon_code);
+    return this.bookingService.placeBookingByDirectPayment(user.id, data.session_id, data.trip_id, data?.coupon_code);
   }
 
 
