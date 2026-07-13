@@ -26,7 +26,7 @@ import { BookingModule } from 'apps/booking/src/booking.module';
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('DB_URI'),
+        uri: config.get<string>('DB_URI') || 'mongodb://localhost:27017/sendit',
       }),
     }),
 

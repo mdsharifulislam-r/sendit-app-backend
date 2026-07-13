@@ -139,12 +139,7 @@ export class BookingController {
     description: 'Cancel booking',
   })
   async cancelBooking(@Param('bookingId') bookingId: string, @Body() data: CancelBookingDto, @CurrentUser() user: any) {
-    const res = await this.bookingService.cancelBooking(bookingId, user.id, data)
-    return sendResponse({
-      message: 'Cancel Booking',
-      success: true,
-      statusCode: 200,
-    })
+    return await this.bookingService.cancelBooking(bookingId, user.id, data)
   }
 
 

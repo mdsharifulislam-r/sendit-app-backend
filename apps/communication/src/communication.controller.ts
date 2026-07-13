@@ -11,6 +11,11 @@ import sendResponse from 'utils/helper/sendResponse';
 export class CommunicationController {
   constructor(private readonly communicationService: CommunicationService) { }
 
+  @Get('health')
+  health() {
+    return { status: 'ok', service: 'communication', timestamp: new Date().toISOString(), uptime: process.uptime() };
+  }
+
   @SqsConsumer('email.send')
   async handleSendEmail(payload: ISendEmail) {
     return await this.communicationService.handleSendEmail(payload)

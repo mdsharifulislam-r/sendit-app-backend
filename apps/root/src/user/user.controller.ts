@@ -18,7 +18,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { UserService } from './user.service';
-import { ChangeEmailDto, ChangeEmailVerifyDto, CompleteKycVerificationDto, CreateUserDto, DeleteAccountDto, UpdateProfileDto } from './user.dto';
+import { ChangeEmailDto, ChangeEmailVerifyDto, CompleteKycVerificationDto, CreateUserDto, DeleteAccountDto, SearchUserInfoDto, UpdateProfileDto, VerifyOtpPhoneDto } from './user.dto';
 import { USER_ROLES } from 'utils/enums/user';
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { Auth } from 'utils/guards/auth.guard';
@@ -126,5 +126,38 @@ export class UserController {
   ) {
     return this.userService.accountDelete(payload, user.id);
   }
+
+  @Post('send-otp-phone')
+  @Auth()
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Send phone number OTP' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully.' })
+  sendOtpPhone(
+    @CurrentUser() user: any,
+  ) {
+    return this.userService.sendOtpInPhoneNumber(user.id);
+  }
+
+  @Post('verify-otp-phone')
+  @Auth()
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Verify OTP' })
+  @ApiResponse({ status: 200, description: 'OTP verified successfully.' })
+  verifyOtpPhone(
+    @CurrentUser() user: any,
+    @Body() payload: VerifyOtpPhoneDto,
+  ) {
+    return this.userService.verifyOtpInPhoneNumber(user.id, payload.otp);
+  }
+  @Get('user-info')
+  @ApiOperation({ summary: 'Get user info' })
+  @ApiResponse({ status: 200, description: 'User info fetched successfully.' })
+  getUserInfo(
+    @Query() query: SearchUserInfoDto,
+  ) {
+    console.log(query)
+    return this.userService.getUserInfo(query.searchTerm);
+  }
+
 
 }

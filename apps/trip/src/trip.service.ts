@@ -203,23 +203,28 @@ export class TripService {
       page = 1,
       limit = 10,
       session_id,
-      currency
+      currency,
     } = query;
 
-    const cache = await this.cacheService.get(`trip_search:${session_id}`, query) as any;
+    const cache = (await this.cacheService.get(
+      `trip_search:${session_id}`,
+      query,
+    )) as any;
+
     if (cache) {
       return sendResponse({
         statusCode: HttpStatus.OK,
-        data: cache.data,
         success: true,
         message: 'Trip search results fetched successfully',
-        pagination: cache.pagination
+        data: cache.data,
+        pagination: cache.pagination,
       });
     }
 
     const skip = (page - 1) * limit;
+
     const filter: any = {
-      status: TRIP_STATUS.PUBLISHED
+      status: TRIP_STATUS.PUBLISHED,
     };
 
     /**
@@ -227,125 +232,198 @@ export class TripService {
      */
     if (search) {
       filter.$or = [
-        { departure_address: { $regex: search, $options: 'i' } },
-        { return_address: { $regex: search, $options: 'i' } },
+        {
+          departure_address: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
+        {
+          return_address: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
       ];
     }
 
     /**
-     * DEPARTURE LOCATION SEARCH
+     * DEPARTURE LOCATION
+     * Uses $near (only ONE geoNear expression is allowed)
      */
-    if (lat && lng) {
+    if (lat != null && lng != null) {
       filter.departure_location = {
         $near: {
-          $geometry: { type: 'Point', coordinates: [Number(lng), Number(lat)] },
+          $geometry: {
+            type: 'Point',
+            coordinates: [Number(lng), Number(lat)],
+          },
           $maxDistance: Number(radiusKm) * 1000,
         },
       };
     }
 
     /**
-     * RETURN LOCATION SEARCH
+     * RETURN LOCATION
+     * Uses $geoWithin
      */
-    if (returnLat && returnLng) {
+    if (returnLat != null && returnLng != null) {
       filter.return_location = {
-        $near: {
-          $geometry: { type: 'Point', coordinates: [Number(returnLng), Number(returnLat)] },
-          $maxDistance: Number(radiusKm) * 1000,
+        $geoWithin: {
+          $centerSphere: [
+            [Number(returnLng), Number(returnLat)],
+            Number(radiusKm) / 6378.1,
+          ],
         },
       };
     }
 
     /**
-     * PRICE FILTER
+     * PRICE
      */
-    if (minPrice !== undefined) {
-      filter['pricing_details.price_per_kg'] = { ...filter['pricing_details.price_per_kg'], $gte: Number(minPrice) };
-    }
-    if (maxPrice !== undefined) {
-      filter['pricing_details.price_per_kg'] = { ...filter['pricing_details.price_per_kg'], $lte: Number(maxPrice) };
+    if (minPrice != null || maxPrice != null) {
+      filter['pricing_details.price_per_kg'] = {};
+
+      if (minPrice != null) {
+        filter['pricing_details.price_per_kg'].$gte = Number(minPrice);
+      }
+
+      if (maxPrice != null) {
+        filter['pricing_details.price_per_kg'].$lte = Number(maxPrice);
+      }
     }
 
     /**
-     * WEIGHT FILTER
+     * WEIGHT
      */
-    if (minWeight !== undefined) {
-      filter.available_space_kg = { ...filter.available_space_kg, $gte: Number(minWeight) };
-    }
-    if (maxWeight !== undefined) {
-      filter.available_space_kg = { ...filter.available_space_kg, $lte: Number(maxWeight) };
+    if (minWeight != null || maxWeight != null) {
+      filter.available_space_kg = {};
+
+      if (minWeight != null) {
+        filter.available_space_kg.$gte = Number(minWeight);
+      }
+
+      if (maxWeight != null) {
+        filter.available_space_kg.$lte = Number(maxWeight);
+      }
     }
 
     /**
-     * DATE FILTER
+     * DATE
      */
     if (departureDate) {
       const start = new Date(departureDate);
+
       const end = new Date(departureDate);
       end.setDate(end.getDate() + 1);
-      filter.departure_date = { $gte: start, $lt: end };
+
+      filter.departure_date = {
+        $gte: start,
+        $lt: end,
+      };
     }
 
     /**
-     * DIRECT ONLY
+     * DIRECT
      */
     if (directOnly) {
       filter.stops = { $size: 0 };
     }
 
     /**
-     * ALLOW STOPS
+     * WITH STOPS
      */
     if (allowStops) {
       filter['stops.0'] = { $exists: true };
     }
 
     /**
-     * TRANSPORT TYPE
+     * TRANSPORT
      */
     if (transportType) {
       filter.transport_type = transportType;
     }
 
+    /**
+     * CURRENCY
+     */
     if (currency) {
       filter['pricing_details.currency'] = currency;
     }
 
-    const sortOption: any = lat && lng ? {} : { created_at: -1 };
+    const sortOption: any =
+      lat != null && lng != null
+        ? {}
+        : {
+          createdAt: -1,
+        };
+
+    const countFilter = { ...filter };
+    if (lat != null && lng != null) {
+      countFilter.departure_location = {
+        $geoWithin: {
+          $centerSphere: [
+            [Number(lng), Number(lat)],
+            Number(radiusKm) / 6378.1,
+          ],
+        },
+      };
+    }
 
     const [entities, total] = await Promise.all([
       this.tripModel
         .find(filter)
-        .populate({ path: 'user', select: 'id name image' })
-        .populate({ path: 'stops', select: 'id address date location' })
-        .select('id departure_address return_address departure_date return_date transport_type available_space_kg created_at pricing_details departure_location return_location')
+        .populate({
+          path: 'user',
+          select: 'id name image',
+        })
+        .populate({
+          path: 'stops',
+          select: 'id address date location',
+        })
+        .select(
+          'id departure_address return_address departure_date return_date transport_type available_space_kg pricing_details departure_location return_location createdAt',
+        )
         .sort(sortOption)
         .skip(skip)
-        .limit(limit),
-      this.tripModel.countDocuments(filter),
+        .limit(limit)
+        .lean(),
+
+      this.tripModel.countDocuments(countFilter),
     ]);
 
     const formatted = entities.map((trip: any) => ({
-      ...trip.toObject(),
-      estimated_price: trip.pricing_details?.price_per_kg && minWeight ? trip.pricing_details.price_per_kg * minWeight : null,
-      session_id: query.session_id || null
+      ...trip,
+      estimated_price:
+        trip.pricing_details?.price_per_kg && minWeight
+          ? trip.pricing_details.price_per_kg * Number(minWeight)
+          : null,
+      session_id: session_id ?? null,
     }));
 
     const pagination = {
-      page,
-      limit,
+      page: Number(page),
+      limit: Number(limit),
       total,
       totalPage: Math.ceil(total / limit),
     };
 
-    this.cacheService.set(`trip_search:${session_id}`, { data: formatted, pagination }, 60 * 2, query);
+    await this.cacheService.set(
+      `trip_search:${session_id}`,
+      {
+        data: formatted,
+        pagination,
+      },
+      120,
+      query,
+    );
 
     return sendResponse({
-      statusCode: 200,
+      statusCode: HttpStatus.OK,
       success: true,
-      message: "Trips fetched successfully",
+      message: 'Trips fetched successfully',
       data: formatted,
-      pagination
+      pagination,
     });
   }
 

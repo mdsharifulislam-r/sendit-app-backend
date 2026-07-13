@@ -10,6 +10,11 @@ import { CancelTripDto, CreateAdminDto, UpdateAdminDto } from './admin.dto';
 export class AdminController {
   constructor(private readonly adminService: AdminService) { }
 
+  @Get('health')
+  health() {
+    return { status: 'ok', service: 'admin', timestamp: new Date().toISOString(), uptime: process.uptime() };
+  }
+
   @Post()
   @Auth(USER_ROLES.SUPER_ADMIN)
   createAdmin(@Body() body: CreateAdminDto, @CurrentUser() user: any) {

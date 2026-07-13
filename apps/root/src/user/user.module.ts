@@ -8,6 +8,7 @@ import { Trip, TripSchema } from 'apps/trip/src/trip.entity';
 import { StopDetails, StopDetailsSchema } from 'apps/trip/src/stop.entity';
 import { Booking, BookingSchema } from 'apps/booking/src/booking.entity';
 import { RiskSettings, RiskSettingsSchema } from 'apps/admin/src/risk-settings/risk-settings.entity';
+import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
 
 
 @Module({
@@ -20,6 +21,7 @@ import { RiskSettings, RiskSettingsSchema } from 'apps/admin/src/risk-settings/r
       { name: RiskSettings.name, schema: RiskSettingsSchema },
     ]),
     AuthModule,
+    RedisCacheModule
   ],
   controllers: [UserController],
   providers: [UserService],

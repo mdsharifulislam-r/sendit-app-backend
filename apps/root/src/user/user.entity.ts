@@ -139,6 +139,13 @@ export class User {
   @Prop({ default: false })
   isKycVerified: boolean;
 
+  @Prop({ default: true })
+  is_phone_number_verified: boolean;
+  @Prop({ type: Date, default: null })
+  phone_number_verification_date: Date
+
+
+
   @Prop({ type: String, default: null })
   stripe_login_link: string;
 

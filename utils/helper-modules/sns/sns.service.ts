@@ -22,4 +22,18 @@ export class SnsService {
 
         return await this.sns.send(command);
     }
+
+    async sendOtpInPhoneNumber(phoneNumber: string, otp: string) {
+        const command = new PublishCommand({
+            PhoneNumber: phoneNumber,
+            Message: `
+            Hello, Your OTP for Sendit is ${otp}. 
+            This OTP will expire in 5 minutes.
+            Do not share this OTP with anyone. 
+            Thank you for using Sendit
+            `
+        });
+
+        return await this.sns.send(command);
+    }
 }

@@ -19,6 +19,7 @@ import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
 import { RiskSettings, RiskSettingsDocument } from 'apps/admin/src/risk-settings/risk-settings.entity';
 import { CreateRiskyItems, RISK_ITEM_TYPE, RISKY_ITEM_STATUS } from 'apps/admin/src/risk-settings/risk-settings.dto';
 import * as bcrypt from 'bcrypt';
+import { CacheService } from 'utils/helper-modules/cache/cache.service';
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
@@ -29,7 +30,8 @@ export class UserService {
     private readonly emailService: EmailService,
     private readonly s3Service: S3Service,
     private readonly snsService: SnsService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly cacheService: CacheService
   ) { }
 
   async create(dto: CreateUserDto) {
@@ -360,6 +362,77 @@ export class UserService {
     });
 
   }
+
+  async sendOtpInPhoneNumber(userId: string) {
+    const user = await this.userModel.findById(userId).select('id email authentication name contact')
+    if (!user) {
+      throw new ApiError(HttpStatus.NOT_FOUND, "User not found");
+    }
+
+    console.log('user :>> ', user.contact);
+
+
+
+    const otp = generateOTP();
+    await this.cacheService.set(`otp:${userId}`, otp, 60 * 3)
+    const result = await this.snsService.sendOtpInPhoneNumber(user.contact, `${otp}`);
+    console.log(result);
+
+
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      data: null,
+      success: true,
+      message: "OTP sent to your phone number",
+    });
+  }
+
+  async verifyOtpInPhoneNumber(userId: string, otp: number) {
+    const user = await this.userModel.findById(userId).select('id email authentication name contact')
+    if (!user) {
+      throw new ApiError(HttpStatus.NOT_FOUND, "User not found");
+    }
+    const cachedOtp = await this.cacheService.get(`otp:${userId}`);
+    if (!cachedOtp) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, "Otp is expired. Please resend");
+    }
+    if (cachedOtp != otp) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, "Invalid Otp");
+    }
+    await this.userModel.findByIdAndUpdate(userId, {
+      phone_number_verification_date: new Date(),
+      is_phone_number_verified: true
+    });
+    await this.cacheService.deleteByPattern(`otp:${userId}`);
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      data: null,
+      success: true,
+      message: "OTP verified successfully",
+    });
+  }
+
+
+  async getUserInfo(searchText: string) {
+    searchText = searchText.startsWith(" ") ? "+" + searchText : searchText;
+
+    const escapedSearch = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const user = await this.userModel.findOne({
+      $or: [
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { email: { $regex: escapedSearch, $options: 'i' } },
+        { contact: { $regex: escapedSearch, $options: 'i' } }
+      ]
+    }, { name: 1, email: 1, contact: 1, image: 1 })
+
+    return sendResponse({
+      statusCode: 200,
+      success: true,
+      message: "User info fetch successfully",
+      data: user
+    })
+  }
+
 
 
 

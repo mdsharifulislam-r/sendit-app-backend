@@ -16,6 +16,11 @@ import sendResponse from 'utils/helper/sendResponse';
 export class TripController {
   constructor(private readonly tripService: TripService, private readonly cacheService: CacheService) { }
 
+  @Get('health')
+  health() {
+    return { status: 'ok', service: 'trip', timestamp: new Date().toISOString(), uptime: process.uptime() };
+  }
+
   @Post()
   @Auth(USER_ROLES.TRANSPORTER, USER_ROLES.TRAVELER)
   @FileUpload({

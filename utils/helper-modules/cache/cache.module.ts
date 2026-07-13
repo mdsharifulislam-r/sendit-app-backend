@@ -14,8 +14,8 @@ import { CacheService } from './cache.service';
       useFactory: async (config: ConfigService) => ({
         store: await redisStore({
           socket: {
-            host: config.get<string>('REDIS_HOST'),
-            port: Number(config.get<number>('REDIS_PORT')),
+            host: config.get<string>('REDIS_HOST') || 'localhost',
+            port: Number(config.get<number>('REDIS_PORT') || 6379),
           },
         }),
       }),
@@ -28,8 +28,8 @@ import { CacheService } from './cache.service';
       useFactory: async (config: ConfigService) => {
         const client = createClient({
           socket: {
-            host: config.get<string>('REDIS_HOST'),
-            port: Number(config.get<number>('REDIS_PORT')),
+            host: config.get<string>('REDIS_HOST') || 'localhost',
+            port: Number(config.get<number>('REDIS_PORT') || 6379),
           },
         });
 

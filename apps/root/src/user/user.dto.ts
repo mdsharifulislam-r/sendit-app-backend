@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsNumber,
   IsUrl,
+  IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType, OmitType } from '@nestjs/swagger';
 import { SOCIAL_PLATFORM, USER_ROLES } from 'utils/enums/user';
@@ -121,4 +122,18 @@ export class DeleteAccountDto {
   @ApiProperty({ example: 'StrongPass123!', description: 'Password' })
   @IsString()
   password!: string;
+}
+
+
+export class VerifyOtpPhoneDto {
+  @ApiProperty({ example: '123456', description: 'OTP' })
+  @IsNumber()
+  otp!: number;
+}
+
+
+export class SearchUserInfoDto {
+  @IsNotEmpty()
+  @IsString()
+  searchTerm: string
 }
