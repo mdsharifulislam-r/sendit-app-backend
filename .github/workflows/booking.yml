@@ -1,19 +1,19 @@
-name: "CI/CD — booking"
+name: 'CI/CD — booking'
 
 on:
   push:
     branches: [main, production]
     paths:
-      - "apps/booking/**"
-      - "apps/payment/src/coupon/**"
-      - "apps/payment/src/pricing-rules/**"
-      - "utils/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.json"
-      - "nest-cli.json"
-      - "Dockerfile"
-      - ".github/workflows/booking.yml"
+      - 'apps/booking/**'
+      - 'apps/payment/src/coupon/**'
+      - 'apps/payment/src/pricing-rules/**'
+      - 'utils/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'nest-cli.json'
+      - 'Dockerfile'
+      - '.github/workflows/booking.yml'
   workflow_dispatch:
 
 env:
@@ -34,9 +34,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-      - run: npm ci
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --f
       - run: npm run lint -- --max-warnings 0 || true
       - run: npm test -- --passWithNoTests
 
