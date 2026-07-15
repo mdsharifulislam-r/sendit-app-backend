@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsArray, IsBooleanString, IsDateString, IsEnum, IsNotEmpty, IsNumberString, IsOptional, IsString } from "class-validator";
+import { Refine } from "utils/decorators/refine.decorator";
 import { Period } from "utils/helper/dateHelper";
 
 export enum PACKAGE_SIZE {
@@ -66,6 +67,30 @@ export class CreateBookingDto {
     @IsNotEmpty()
     @IsEnum(PACKAGE_TYPE)
     package_type: PACKAGE_TYPE
+
+    @ApiProperty({
+        description: "Give the pickup method",
+        example: "Drop Point",
+    })
+    @IsNotEmpty()
+    @IsString()
+    pickup_method: string
+
+    @ApiProperty({
+        description: "Give the pickup date",
+        example: "2022-01-01",
+    })
+    @IsNotEmpty()
+    @IsDateString()
+    @Refine({
+        validator: (value) => {
+            const date = new Date(value)
+            const today = new Date()
+            return date >= today
+        },
+        message: "Pickup date must be greater than or equal to today"
+    })
+    pickup_date: Date
 
     @ApiProperty({
         description: "Give the actual package weight in kg",

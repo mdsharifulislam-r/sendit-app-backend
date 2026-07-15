@@ -119,6 +119,12 @@ export class TripController {
     });
   }
 
+  @Patch('complete/:id')
+  @Auth()
+  completeTrip(@Param("id") id: string, @CurrentUser() user: any) {
+    return this.tripService.completeTrip(id, user.id)
+  }
+
   @Patch(':id')
   @Auth(USER_ROLES.TRANSPORTER, USER_ROLES.TRAVELER)
   @FileUpload({

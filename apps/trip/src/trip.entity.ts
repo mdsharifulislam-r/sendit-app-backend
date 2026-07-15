@@ -115,6 +115,9 @@ export class Trip {
 
   @Prop({ type: String, default: null })
   cancellation_reason: string;
+
+  @Prop({ type: String, default: null })
+  what_we_accept: string;
 }
 
 export const TripSchema = SchemaFactory.createForClass(Trip);

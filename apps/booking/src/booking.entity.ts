@@ -151,6 +151,13 @@ export class Booking {
 
   @Prop({ type: Object, default: {} })
   dropoff_condition: { proof_image: string, package_condition: string, damage_image: string, note: string }
+
+  @Prop({ type: Date, default: null })
+  pickup_date: Date
+
+  @Prop({ type: String, default: null })
+  pickup_method: string
+
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);

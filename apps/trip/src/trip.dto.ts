@@ -16,7 +16,8 @@ export enum TRIP_STATUS {
     PUBLISHED = "published",
     DELETED = "deleted",
     ARCHIVED = "archived",
-    CANCELLED = "cancelled"
+    CANCELLED = "cancelled",
+    COMPLETED = "completed"
 }
 
 export enum TRANSPORT_TYPE {
@@ -280,6 +281,22 @@ export class CreateTripDto {
     @IsOptional()
     @IsString()
     trip_description: string
+
+    @ApiPropertyOptional({
+        description: "What We Accept is required",
+        example: "What We Accept",
+    })
+    @IsNotEmpty()
+    @IsString()
+    what_we_accept: string
+
+    @ApiPropertyOptional({
+        description: "Status is required",
+        example: "Pending",
+    })
+    @IsNotEmpty()
+    @IsEnum(TRIP_STATUS)
+    status: TRIP_STATUS
 
 
 }

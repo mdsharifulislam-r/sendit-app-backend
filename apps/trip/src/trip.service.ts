@@ -38,32 +38,34 @@ export class TripService {
 
   async create(createTripDto: CreateTripDto, userId: string) {
 
-    const agreement = await this.transportAgreementService.checkAgreement(userId)
+    if (createTripDto.status != TRIP_STATUS.PUBLISHED) {
+      const agreement = await this.transportAgreementService.checkAgreement(userId)
 
-    if (!agreement) {
-      return sendResponse({
-        statusCode: HttpStatus.BAD_REQUEST,
-        data: {
-          error: 'You have no agreement, please create one first',
-          error_code: 'NO_AGREEMENT',
-        },
-        success: false,
-        message: 'You have no agreement, please create one first',
-      });
-    }
+      if (!agreement) {
+        return sendResponse({
+          statusCode: HttpStatus.BAD_REQUEST,
+          data: {
+            error: 'You have no agreement, please create one first',
+            error_code: 'NO_AGREEMENT',
+          },
+          success: false,
+          message: 'You have no agreement, please create one first',
+        });
+      }
 
-    const isKycVerified = await this.userModel.findById(userId, { isKycVerified: 1 })
+      const isKycVerified = await this.userModel.findById(userId, { isKycVerified: 1 })
 
-    if (!isKycVerified?.isKycVerified) {
-      return sendResponse({
-        statusCode: HttpStatus.BAD_REQUEST,
-        data: {
-          error: 'Your Kyc is not verified, please verify your kyc first',
-          error_code: 'KYC_NOT_VERIFIED',
-        },
-        success: false,
-        message: 'Your Kyc is not verified, please verify your kyc first',
-      });
+      if (!isKycVerified?.isKycVerified) {
+        return sendResponse({
+          statusCode: HttpStatus.BAD_REQUEST,
+          data: {
+            error: 'Your Kyc is not verified, please verify your kyc first',
+            error_code: 'KYC_NOT_VERIFIED',
+          },
+          success: false,
+          message: 'Your Kyc is not verified, please verify your kyc first',
+        });
+      }
     }
 
 
@@ -152,35 +154,30 @@ export class TripService {
   }
 
   async getUserTrips(userId: string, query: { page: string, limit: string, searchTerm: string }) {
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const tripQuery = new QueryBuilder(this.tripModel.find({ user: userId }), query)
+      .filter()
+      .paginate()
+      .sort('-created_at')
 
-    const filter: any = { user: userId };
-
-    const [trips, total] = await Promise.all([
-      this.tripModel
-        .find(filter)
-        .populate({ path: 'stops' })
-        .populate({ path: 'user', select: 'id name email image' })
-        .select('id departure_address return_address departure_date return_date stops user departure_location return_location carry_type pricing_details transport_type created_at')
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit),
-      this.tripModel.countDocuments(filter),
-    ]);
+    const [data, pagination] = await Promise.all([
+      tripQuery.modelQuery.populate([
+        {
+          path: 'stops',
+        },
+        {
+          path: 'user',
+          select: '_id name email contact image'
+        }
+      ]),
+      tripQuery.getPaginationInfo(),
+    ])
 
     return sendResponse({
       statusCode: HttpStatus.OK,
-      data: trips,
+      data,
+      pagination,
       success: true,
       message: 'User trips fetched successfully',
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPage: Math.ceil(total / limit),
-      }
     });
   }
 
@@ -624,6 +621,59 @@ export class TripService {
       data,
       pagination
     }
+  }
+
+
+  async completeTrip(tripId: string, userId: string) {
+    const trip = await this.tripModel.findById(tripId)
+    if (!trip) {
+      throw new ApiError(HttpStatus.NOT_FOUND, 'Trip not found')
+    }
+    if (trip.status !== TRIP_STATUS.PUBLISHED)
+      if (trip.status == TRIP_STATUS.COMPLETED) {
+
+        throw new ApiError(HttpStatus.BAD_REQUEST, 'Trip already completed')
+      }
+
+    if (trip.user.toString() !== userId) {
+      throw new ApiError(HttpStatus.UNAUTHORIZED, 'You are not authorized to complete this trip')
+    }
+    const activeBooking = await this.bookingModel.countDocuments({ trip: tripId, status: BOOKING_STATUS.CONFIRMED })
+
+    if (activeBooking > 0) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Trip has active bookings!! Complete all bookings and try again.')
+    }
+
+    trip.status = TRIP_STATUS.COMPLETED
+    await trip.save()
+
+    await this.cacheService.deleteByPattern(`trip_details:${tripId}`)
+    await this.cacheService.deleteByPattern('trip_search')
+    await this.snsService.publish<CreateNotificationDto>('notification.send', {
+      title: `Trip completed`,
+      message: `Congratulations! Your trip ${trip.id} has been successfully completed`,
+      isRead: false,
+      receiver: [trip.user.toString()],
+      filePath: FilePathType.TRIP,
+      referenceId: trip.id
+
+    })
+
+    await this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+      action: 'Trip Completed',
+      new_value: TRIP_STATUS.COMPLETED,
+      old_value: TRIP_STATUS.PUBLISHED,
+      reason: `Your trip ${trip.id} has been successfully completed`,
+      user: trip.user
+    })
+
+    return sendResponse({
+      statusCode: 200,
+      success: true,
+      message: "Trip completed successfully",
+      data: trip,
+    });
+
   }
 
 
