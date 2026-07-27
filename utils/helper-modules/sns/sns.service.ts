@@ -1,0 +1,39 @@
+import { Injectable } from '@nestjs/common';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+
+@Injectable()
+export class SnsService {
+    private sns = new SNSClient({
+        region: process.env.AWS_REGION,
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        },
+    });
+
+    async publish<T>(eventType: string, data: T) {
+        const command = new PublishCommand({
+            TopicArn: process.env.SNS_TOPIC_ARN,
+            Message: JSON.stringify({
+                eventType,
+                data,
+            }),
+        });
+
+        return await this.sns.send(command);
+    }
+
+    async sendOtpInPhoneNumber(phoneNumber: string, otp: string) {
+        const command = new PublishCommand({
+            PhoneNumber: phoneNumber,
+            Message: `
+            Hello, Your OTP for Sendit is ${otp}. 
+            This OTP will expire in 5 minutes.
+            Do not share this OTP with anyone. 
+            Thank you for using Sendit
+            `
+        });
+
+        return await this.sns.send(command);
+    }
+}
