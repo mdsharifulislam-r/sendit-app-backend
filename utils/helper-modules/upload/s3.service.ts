@@ -63,6 +63,47 @@ export class S3Service {
         };
     }
 
+    async rawUploadFile(filePath: string) {
+        const localPath = path.join(
+            process.cwd(),
+            'uploads',
+            filePath,
+        );
+
+        const ext = path.extname(filePath);
+
+        const baseName = path.basename(filePath)?.split('.')[0];
+
+        const fileKey = `uploads/${baseName}${ext}`;
+
+        const fileBuffer = await fs.readFile(localPath);
+
+        const mimeType =
+            mime.lookup(localPath) || 'application/octet-stream';
+
+        await this.s3.send(
+            new PutObjectCommand({
+                Bucket: process.env.AWS_BUCKET_NAME,
+                Key: fileKey,
+                Body: fileBuffer,
+                ContentType: mimeType,
+            }),
+        ).then(() => {
+
+            try {
+                unlinkSync(localPath)
+                console.log('File uploaded successfully');
+            } catch (error) {
+
+            }
+        });
+
+        return {
+            key: fileKey,
+            url: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`,
+        };
+    }
+
     async uploadMultipleFiles(filepaths: string[]) {
         const data = await Promise.all(filepaths.map(async (f) => (await this.uploadFile(f)).url))
         return data

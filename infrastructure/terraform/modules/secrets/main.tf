@@ -52,7 +52,7 @@ resource "aws_secretsmanager_secret_version" "app" {
     # AWS
     AWS_ACCESS_KEY_ID     = "REPLACE_OR_USE_INSTANCE_PROFILE"
     AWS_SECRET_ACCESS_KEY = "REPLACE_OR_USE_INSTANCE_PROFILE"
-    AWS_REGION            = "eu-north-1"
+    AWS_REGION            = "eu-central-1"
     AWS_BUCKET_NAME       = "REPLACE_WITH_BUCKET_NAME"
     SNS_TOPIC_ARN         = "REPLACE_WITH_SNS_ARN"
     SQS_QUEUE_URL         = "REPLACE_WITH_MAIN_SQS_URL"

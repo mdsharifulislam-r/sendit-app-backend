@@ -28,12 +28,12 @@ WORKDIR /app
 # Security: non-root user
 RUN addgroup -g 1001 -S nestjs && adduser -S nestjs -u 1001 -G nestjs
 
-# Only copy production node_modules and built dist
-COPY --from=deps /app/node_modules_prod ./node_modules
-COPY --from=builder /app/dist ./dist
-
 # Create uploads directory with correct ownership
-RUN mkdir -p uploads && chown -R nestjs:nestjs /app
+RUN mkdir -p uploads && chown nestjs:nestjs uploads
+
+# Only copy production node_modules and built dist
+COPY --chown=nestjs:nestjs --from=deps /app/node_modules_prod ./node_modules
+COPY --chown=nestjs:nestjs --from=builder /app/dist ./dist
 
 USER nestjs
 

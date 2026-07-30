@@ -193,63 +193,62 @@ export class UserService {
   }
 
   async completeKycVerification(userId: string, dto: CompleteKycVerificationDto) {
-    const user = await this.userModel.findById(userId).select('id passport_info driving_license_info id_card_info name email');
+    const user = await this.userModel.findById(userId)
+      .select('id passport_info driving_license_info id_card_info name email')
+      .lean();
 
     if (!user) {
-      throw new ApiError(HttpStatus.NOT_FOUND, 'User not found ');
+      throw new ApiError(HttpStatus.NOT_FOUND, 'User not found');
     }
+
+    if (!dto) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'No files were uploaded');
+    }
+
+    const updateFields: any = {};
 
     if (dto.passport_image) {
       const imageUrl = await this.s3Service.uploadFile(dto.passport_image);
-      dto.passport_image = imageUrl.url;
+      updateFields['passport_info.file'] = imageUrl.url;
+      updateFields['passport_info.status'] = 'pending';
+      updateFields['passport_info.rejection_reason'] = '';
+      updateFields['passport_info.verified_at'] = null;
     }
 
     if (dto.driving_license_image) {
       const imageUrl = await this.s3Service.uploadFile(dto.driving_license_image);
-      dto.driving_license_image = imageUrl.url;
+      updateFields['driving_license_info.file'] = imageUrl.url;
+      updateFields['driving_license_info.status'] = 'pending';
+      updateFields['driving_license_info.rejection_reason'] = '';
+      updateFields['driving_license_info.verified_at'] = null;
     }
 
     if (dto.id_card_front_image) {
       const imageUrl = await this.s3Service.uploadFile(dto.id_card_front_image);
-      dto.id_card_front_image = imageUrl.url;
+      updateFields['id_card_info.front'] = imageUrl.url;
+      updateFields['id_card_info.status'] = 'pending';
+      updateFields['id_card_info.rejection_reason'] = '';
+      updateFields['id_card_info.verified_at'] = null;
     }
 
     if (dto.id_card_back_image) {
       const imageUrl = await this.s3Service.uploadFile(dto.id_card_back_image);
-      dto.id_card_back_image = imageUrl.url;
+      updateFields['id_card_info.back'] = imageUrl.url;
+      updateFields['id_card_info.status'] = 'pending';
+      updateFields['id_card_info.rejection_reason'] = '';
+      updateFields['id_card_info.verified_at'] = null;
     }
 
-    const updated = await this.userModel.findByIdAndUpdate(userId, {
-      ...(dto?.passport_image && {
-        passport_info: {
-          ...user.passport_info,
-          file: dto.passport_image,
-          status: "pending",
-          rejection_reason: "",
-          verified_at: null,
-        }
-      }),
-      ...(dto?.driving_license_image && {
-        driving_license_info: {
-          ...user.driving_license_info,
-          file: dto.driving_license_image,
-          status: "pending",
-          rejection_reason: "",
-          verified_at: null,
-        }
-      }),
-      ...(dto?.id_card_front_image && dto?.id_card_back_image && {
-        id_card_info: {
-          ...user.id_card_info,
-          front: dto.id_card_front_image,
-          back: dto.id_card_back_image,
-          status: "pending",
-          rejection_reason: "",
-          verified_at: null,
-        }
-      }),
-      $inc: { kyc_submission_count: (user?.passport_info?.file && user?.driving_license_info?.file && user?.id_card_info?.front && user?.id_card_info?.back) ? 1 : 0 }
-    }, { new: true });
+    const hasPassport = !!(dto.passport_image || user?.passport_info?.file);
+    const hasLicense = !!(dto.driving_license_image || user?.driving_license_info?.file);
+    const hasIdFront = !!(dto.id_card_front_image || user?.id_card_info?.front);
+    const hasIdBack = !!(dto.id_card_back_image || user?.id_card_info?.back);
+
+    if (hasPassport && hasLicense && hasIdFront && hasIdBack) {
+      updateFields['$inc'] = { kyc_submission_count: 1 };
+    }
+
+    const updated = await this.userModel.findByIdAndUpdate(userId, updateFields, { new: true }).lean();
 
     const riskSettings = await this.riskSettingsModel.findOne({}, { max_failed_kyc_attempts: 1 }).lean();
 
@@ -259,9 +258,8 @@ export class UserService {
         description: `User ${user?.name} has submitted KYC more than ${riskSettings?.max_failed_kyc_attempts} times`,
         item: userId as any,
         status: RISKY_ITEM_STATUS.PENDNIG,
-      })
+      });
     }
-
 
     this.snsService.publish<CreateNotificationDto>('notification.send', {
       title: `${user?.name} is requesting for KYC verification`,
@@ -278,7 +276,7 @@ export class UserService {
       receiver: [userId],
       filePath: FilePathType.USER,
       referenceId: userId,
-    })
+    });
 
     this.snsService.publish<CreateAuditLogsDto>('audit.create', {
       action: 'KYC verification request',

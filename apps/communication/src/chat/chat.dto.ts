@@ -58,4 +58,8 @@ export class CreateChatDto {
     @IsString()
     description: string
 
+    @IsOptional()
+    @IsString()
+    report: string
+
 }

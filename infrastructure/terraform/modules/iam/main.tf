@@ -115,7 +115,7 @@ resource "aws_iam_role_policy" "task_permissions" {
           "logs:PutLogEvents",
           "logs:DescribeLogStreams"
         ]
-        Resource = concat(var.log_group_arns, ["${element(var.log_group_arns, 0)}:*"])
+        Resource = length(var.log_group_arns) > 0 ? concat(var.log_group_arns, ["${element(var.log_group_arns, 0)}:*"]) : ["arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/ecs/sendit-${var.environment}/*"]
       },
       # Secrets Manager — read secrets at runtime (e.g., JWT_SECRET refresh)
       {

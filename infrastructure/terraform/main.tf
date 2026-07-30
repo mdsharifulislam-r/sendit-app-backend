@@ -1,6 +1,6 @@
 # ─── Terraform Root Configuration ──────────────────────────────────────────────
 # Sendit Backend — AWS ECS Fargate Production Infrastructure
-# Region: eu-north-1 (Stockholm)
+# Region: eu-central-1 (Frankfurt)
 # ──────────────────────────────────────────────────────────────────────────────
 
 terraform {
@@ -19,10 +19,10 @@ terraform {
 
   # Remote state — replace bucket/table with your own
   backend "s3" {
-    bucket         = "sendit-terraform-state-shariful"
+    bucket         = "sendit-terraform-state-shariful-central"
     key            = "production/terraform.tfstate"
-    region         = "eu-north-1"
-    dynamodb_table = "sendit-terraform-locks"
+    region         = "eu-central-1"
+    use_lockfile   = true
     encrypt        = true
   }
 }
@@ -102,12 +102,12 @@ module "messaging" {
   environment = var.environment
 }
 
-# ─── ACM Certificate ─────────────────────────────────────────────────────────
-module "acm" {
-  source      = "./modules/acm"
-  domain_name = var.domain_name
-  aws_region  = var.aws_region
-}
+# ─── ACM Certificate (Disabled for now) ──────────────────────────────────────
+# module "acm" {
+#   source      = "./modules/acm"
+#   domain_name = var.domain_name
+#   aws_region  = var.aws_region
+# }
 
 # ─── Application Load Balancer ────────────────────────────────────────────────
 module "alb" {
@@ -115,7 +115,7 @@ module "alb" {
   environment        = var.environment
   vpc_id             = module.networking.vpc_id
   public_subnet_ids  = module.networking.public_subnet_ids
-  certificate_arn    = module.acm.certificate_arn
+  # certificate_arn    = module.acm.certificate_arn
 }
 
 # ─── ECS Cluster + Services ──────────────────────────────────────────────────
@@ -126,7 +126,7 @@ module "ecs" {
   vpc_id               = module.networking.vpc_id
   private_subnet_ids   = module.networking.private_subnet_ids
   alb_sg_id            = module.alb.alb_sg_id
-  alb_listener_arn     = module.alb.https_listener_arn
+  alb_listener_arn     = module.alb.http_listener_arn
   alb_listener_http_arn = module.alb.http_listener_arn
   alb_tg_arns          = module.alb.service_tg_arns
   execution_role_arn   = module.iam.ecs_execution_role_arn

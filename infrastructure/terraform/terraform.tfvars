@@ -9,11 +9,11 @@ environment = "production"
 # Networking
 vpc_cidr = "10.0.0.0/16"
 
-# Domain (replace with your domain)
+# Domain 
 domain_name = "api.sendit.app"
 
 # Docker Hub
-dockerhub_username = "YOUR_DOCKERHUB_USERNAME"
+dockerhub_username = "shariful1234"
 
 # Service images — updated by CI/CD automatically
 service_images = {

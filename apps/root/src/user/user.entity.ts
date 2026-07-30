@@ -170,6 +170,12 @@ export class User {
   @Prop({ type: Number })
   from_referral: number
 
+
+  @Prop({ type: Boolean, default: false })
+  is_face_verified: boolean
+  @Prop({ type: Boolean, default: false })
+  is_fingerprint_verified: boolean
+
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
@@ -194,3 +200,28 @@ export class ResetToken {
 }
 
 export const ResetTokenSchema = SchemaFactory.createForClass(ResetToken);
+
+
+@Schema({
+  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' }, collection: 'face_verifications'
+})
+export class FaceVerification {
+  _id: Types.ObjectId;
+
+  @Prop({ required: true, type: MongooseSchema.Types.ObjectId, ref: 'User' })
+  userId: Types.ObjectId;
+  @Prop({ required: true, type: String })
+  deviceId: string
+
+  @Prop({ type: String })
+  fingerprint_id: string
+
+  @Prop({ type: Object })
+  faceDescriptor: Record<string, number>;
+
+}
+
+export type FaceVerificationDocument = FaceVerification & Document;
+
+export const FaceVerificationSchema = SchemaFactory.createForClass(FaceVerification);
+FaceVerificationSchema.index({ deviceId: 1 })

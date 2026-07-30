@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 import { CreateDeviceDto } from '../device/device.dto';
 import { Type } from 'class-transformer';
 
@@ -69,4 +69,24 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(8)
   confirmPassword: string;
+}
+
+export class FaceRegistrationDto {
+  @ApiProperty({ example: '1234567890', description: 'device id' })
+  @IsString()
+  deviceId: string
+
+  @ApiProperty({ example: 'face' })
+  @IsString()
+  @IsEnum(["face", "fingerprint"])
+  type: "face" | "fingerprint"
+
+  @ApiProperty({ example: '1234567890', description: 'fingerprint id' })
+  @IsOptional()
+  @IsString()
+  fingerprint_id?: string
+
+  @ApiProperty()
+  @IsOptional()
+  deviceInfo: CreateDeviceDto
 }

@@ -7,7 +7,7 @@
 variable "environment"        {}
 variable "vpc_id"             {}
 variable "public_subnet_ids"  {}
-variable "certificate_arn"    {}
+# variable "certificate_arn"    {}
 
 # ─── Service port map ─────────────────────────────────────────────────────────
 locals {
@@ -106,14 +106,12 @@ resource "aws_lb_target_group" "services" {
   tags                 = { Name = "sendit-${var.environment}-${each.key}-tg" }
 }
 
-# ─── HTTPS Listener ───────────────────────────────────────────────────────────
-# Default: forward to root service
-resource "aws_lb_listener" "https" {
+# ─── HTTP Listener ────────────────────────────────────────────────────────────
+# Default: forward to root service (HTTPS disabled for now)
+resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
-  port              = 443
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.certificate_arn
+  port              = 80
+  protocol          = "HTTP"
 
   default_action {
     type             = "forward"
@@ -121,27 +119,11 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-# ─── HTTP → HTTPS Redirect ────────────────────────────────────────────────────
-resource "aws_lb_listener" "http_redirect" {
-  load_balancer_arn = aws_lb.main.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
-  }
-}
-
 # ─── Path-Based Routing Rules ─────────────────────────────────────────────────
 resource "aws_lb_listener_rule" "service_routes" {
   for_each = { for r in local.routing_rules : r.service => r }
 
-  listener_arn = aws_lb_listener.https.arn
+  listener_arn = aws_lb_listener.http.arn
   priority     = each.value.priority
 
   action {
@@ -163,8 +145,8 @@ output "alb_arn"            { value = aws_lb.main.arn }
 output "alb_dns_name"       { value = aws_lb.main.dns_name }
 output "alb_zone_id"        { value = aws_lb.main.zone_id }
 output "alb_sg_id"          { value = aws_security_group.alb.id }
-output "https_listener_arn" { value = aws_lb_listener.https.arn }
-output "http_listener_arn"  { value = aws_lb_listener.http_redirect.arn }
+# output "https_listener_arn" { value = aws_lb_listener.https.arn }
+output "http_listener_arn"  { value = aws_lb_listener.http.arn }
 
 # Map of service name → target group ARN — consumed by ECS module
 output "service_tg_arns" {

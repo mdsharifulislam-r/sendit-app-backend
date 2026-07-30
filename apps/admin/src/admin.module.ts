@@ -15,6 +15,7 @@ import { Booking, BookingSchema } from 'apps/booking/src/booking.entity';
 import { Report, ReportSchema } from 'apps/communication/src/report/report.entity';
 import { Ticket, TicketSchema } from './ticket/ticket.entity';
 import { RiskyItems, RiskyItemsSchema } from './risk-settings/risk-settings.entity';
+import { Review, ReviewSchema } from 'apps/trip/src/review/review.entity';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { RiskyItems, RiskyItemsSchema } from './risk-settings/risk-settings.enti
       { name: Report.name, schema: ReportSchema },
       { name: Ticket.name, schema: TicketSchema },
       { name: RiskyItems.name, schema: RiskyItemsSchema },
+      { name: Review.name, schema: ReviewSchema },
     ]),
 
     AuthModule,

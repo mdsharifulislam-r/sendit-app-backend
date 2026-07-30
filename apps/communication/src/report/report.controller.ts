@@ -39,6 +39,18 @@ export class ReportController {
     });
   }
 
+  @Post('admin-report')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  createAdminReport(@Body() data: CreateReportDto, @CurrentUser() user: any) {
+    return this.reportService.createReportFromAdmin(data, user.id);
+  }
+
+  @Post('create-chat-with-support/:id')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  createChatWithSupport(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.reportService.createChatWithSupport(id);
+  }
+
   @Get(':reportId')
   @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
   async getSingleReport(@Param('reportId') reportId: string) {
@@ -56,4 +68,6 @@ export class ReportController {
   async deleteReport(@Param('reportId') reportId: string) {
     return this.reportService.deleteReport(reportId);
   }
+
+
 }
