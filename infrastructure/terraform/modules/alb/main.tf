@@ -34,7 +34,7 @@ locals {
 # ─── ALB Security Group ───────────────────────────────────────────────────────
 resource "aws_security_group" "alb" {
   name        = "sendit-${var.environment}-alb-sg"
-  description = "ALB security group — allow HTTP/HTTPS from internet"
+  description = "ALB security group - allow HTTP/HTTPS from internet"
   vpc_id      = var.vpc_id
 
   ingress {

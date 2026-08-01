@@ -4,7 +4,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 aws_region  = "eu-central-1"
-environment = "production"
+environment = "dev"
 
 # Networking
 vpc_cidr = "10.0.0.0/16"
@@ -27,7 +27,7 @@ service_images = {
 
 # DocumentDB
 db_master_username        = "senditadmin"
-db_master_password        = "REPLACE_WITH_STRONG_PASSWORD"
+db_master_password        = "SenditDev2026!"
 documentdb_instance_count = 2
 documentdb_instance_class = "db.t3.medium"
 
@@ -35,4 +35,8 @@ documentdb_instance_class = "db.t3.medium"
 redis_node_type = "cache.t3.micro"
 
 # S3
-s3_bucket_name = "sendit-uploads-production"
+s3_bucket_name = "sendit-dev-uploads"
+
+# Optional features (require extra IAM permissions from client)
+enable_autoscaling           = false
+enable_cloudwatch_monitoring = false

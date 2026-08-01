@@ -2,14 +2,14 @@
 # Least-privilege IAM roles for ECS Task Execution and ECS Tasks
 # ──────────────────────────────────────────────────────────────────────────────
 
-variable "environment"     {}
-variable "aws_region"      {}
-variable "account_id"      {}
-variable "sns_topic_arn"   {}
-variable "sqs_queue_arns"  { type = list(string) }
-variable "s3_bucket_arn"   {}
-variable "documentdb_arn"  {}
-variable "log_group_arns"  { type = list(string) }
+variable "environment" {}
+variable "aws_region" {}
+variable "account_id" {}
+variable "sns_topic_arn" {}
+variable "sqs_queue_arns" { type = list(string) }
+variable "s3_bucket_arn" {}
+variable "documentdb_arn" {}
+variable "log_group_arns" { type = list(string) }
 
 # ─── ECS Task Execution Role ──────────────────────────────────────────────────
 # Allows ECS agent to pull images and push logs
@@ -44,7 +44,7 @@ resource "aws_iam_role_policy" "execution_secrets" {
       {
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.account_id}:secret:sendit/${var.environment}/*"
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.account_id}:secret:sendit-${var.environment}-*"
       }
     ]
   })
@@ -121,7 +121,7 @@ resource "aws_iam_role_policy" "task_permissions" {
       {
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.account_id}:secret:sendit/${var.environment}/*"
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.account_id}:secret:sendit-${var.environment}-*"
       }
     ]
   })
@@ -129,4 +129,4 @@ resource "aws_iam_role_policy" "task_permissions" {
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
 output "ecs_execution_role_arn" { value = aws_iam_role.ecs_execution.arn }
-output "ecs_task_role_arn"      { value = aws_iam_role.ecs_task.arn }
+output "ecs_task_role_arn" { value = aws_iam_role.ecs_task.arn }

@@ -2,24 +2,16 @@
 # Log groups, dashboards, alarms for all Sendit ECS services
 # ──────────────────────────────────────────────────────────────────────────────
 
-variable "environment"        {}
-variable "aws_region"         {}
-variable "ecs_cluster_name"   {}
-variable "ecs_service_names"  { type = list(string) }
-
-locals {
-  service_names = var.ecs_service_names
-}
-
 # ─── SNS Alarm Topic ──────────────────────────────────────────────────────────
 resource "aws_sns_topic" "alarms" {
-  name = "sendit-${var.environment}-alarms"
-  tags = { Name = "sendit-${var.environment}-alarms" }
+  count = var.enable_monitoring ? 1 : 0
+  name  = "sendit-${var.environment}-alarms"
+  tags  = { Name = "sendit-${var.environment}-alarms" }
 }
 
 # ─── CPU Alarms ───────────────────────────────────────────────────────────────
 resource "aws_cloudwatch_metric_alarm" "cpu_high" {
-  for_each = toset(var.ecs_service_names)
+  for_each = var.enable_monitoring ? var.ecs_services : {}
 
   alarm_name          = "sendit-${var.environment}-${each.key}-cpu-high"
   comparison_operator = "GreaterThanThreshold"
@@ -30,19 +22,19 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   statistic           = "Average"
   threshold           = 85
   alarm_description   = "CPU > 85% for ${each.key}"
-  alarm_actions       = [aws_sns_topic.alarms.arn]
-  ok_actions          = [aws_sns_topic.alarms.arn]
+  alarm_actions       = [aws_sns_topic.alarms[0].arn]
+  ok_actions          = [aws_sns_topic.alarms[0].arn]
   treat_missing_data  = "notBreaching"
 
   dimensions = {
     ClusterName = var.ecs_cluster_name
-    ServiceName = each.key
+    ServiceName = each.value
   }
 }
 
 # ─── Memory Alarms ────────────────────────────────────────────────────────────
 resource "aws_cloudwatch_metric_alarm" "memory_high" {
-  for_each = toset(var.ecs_service_names)
+  for_each = var.enable_monitoring ? var.ecs_services : {}
 
   alarm_name          = "sendit-${var.environment}-${each.key}-memory-high"
   comparison_operator = "GreaterThanThreshold"
@@ -53,19 +45,19 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
   statistic           = "Average"
   threshold           = 85
   alarm_description   = "Memory > 85% for ${each.key}"
-  alarm_actions       = [aws_sns_topic.alarms.arn]
-  ok_actions          = [aws_sns_topic.alarms.arn]
+  alarm_actions       = [aws_sns_topic.alarms[0].arn]
+  ok_actions          = [aws_sns_topic.alarms[0].arn]
   treat_missing_data  = "notBreaching"
 
   dimensions = {
     ClusterName = var.ecs_cluster_name
-    ServiceName = each.key
+    ServiceName = each.value
   }
 }
 
 # ─── Task Count Alarm (service degraded) ─────────────────────────────────────
 resource "aws_cloudwatch_metric_alarm" "task_count_low" {
-  for_each = toset(var.ecs_service_names)
+  for_each = var.enable_monitoring ? var.ecs_services : {}
 
   alarm_name          = "sendit-${var.environment}-${each.key}-tasks-low"
   comparison_operator = "LessThanThreshold"
@@ -76,17 +68,18 @@ resource "aws_cloudwatch_metric_alarm" "task_count_low" {
   statistic           = "Minimum"
   threshold           = 1
   alarm_description   = "Running tasks < 1 for ${each.key}"
-  alarm_actions       = [aws_sns_topic.alarms.arn]
+  alarm_actions       = [aws_sns_topic.alarms[0].arn]
   treat_missing_data  = "breaching"
 
   dimensions = {
     ClusterName = var.ecs_cluster_name
-    ServiceName = each.key
+    ServiceName = each.value
   }
 }
 
 # ─── Dashboard ────────────────────────────────────────────────────────────────
 resource "aws_cloudwatch_dashboard" "main" {
+  count          = var.enable_monitoring ? 1 : 0
   dashboard_name = "sendit-${var.environment}"
 
   dashboard_body = jsonencode({
@@ -101,7 +94,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           period = 60
           view   = "timeSeries"
           metrics = [
-            for svc in var.ecs_service_names : [
+            for svc in values(var.ecs_services) : [
               "AWS/ECS", "CPUUtilization",
               "ClusterName", var.ecs_cluster_name,
               "ServiceName", svc,
@@ -120,7 +113,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           period = 60
           view   = "timeSeries"
           metrics = [
-            for svc in var.ecs_service_names : [
+            for svc in values(var.ecs_services) : [
               "AWS/ECS", "MemoryUtilization",
               "ClusterName", var.ecs_cluster_name,
               "ServiceName", svc,
@@ -134,7 +127,9 @@ resource "aws_cloudwatch_dashboard" "main" {
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
-output "alarm_topic_arn" { value = aws_sns_topic.alarms.arn }
-output "log_group_arns"  {
-  value = []  # Log groups are created in ECS module; this is a placeholder
+output "alarm_topic_arn" {
+  value = var.enable_monitoring ? aws_sns_topic.alarms[0].arn : null
+}
+output "log_group_arns" {
+  value = []
 }

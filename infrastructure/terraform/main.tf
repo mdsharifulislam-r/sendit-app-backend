@@ -19,11 +19,11 @@ terraform {
 
   # Remote state — replace bucket/table with your own
   backend "s3" {
-    bucket         = "sendit-terraform-state-shariful-central"
-    key            = "production/terraform.tfstate"
-    region         = "eu-central-1"
-    use_lockfile   = true
-    encrypt        = true
+    bucket       = "sendit-terraform-state-shariful-central"
+    key          = "production/terraform.tfstate"
+    region       = "eu-central-1"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 
@@ -55,15 +55,17 @@ module "secrets" {
 
 # ─── IAM ─────────────────────────────────────────────────────────────────────
 module "iam" {
-  source              = "./modules/iam"
-  environment         = var.environment
-  aws_region          = var.aws_region
-  account_id          = data.aws_caller_identity.current.account_id
-  sns_topic_arn       = module.messaging.sns_topic_arn
-  sqs_queue_arns      = module.messaging.sqs_queue_arns
-  s3_bucket_arn       = module.s3.bucket_arn
-  documentdb_arn      = module.documentdb.cluster_arn
-  log_group_arns      = module.cloudwatch.log_group_arns
+  source         = "./modules/iam"
+  environment    = var.environment
+  aws_region     = var.aws_region
+  account_id     = data.aws_caller_identity.current.account_id
+  sns_topic_arn  = module.messaging.sns_topic_arn
+  sqs_queue_arns = module.messaging.sqs_queue_arns
+  s3_bucket_arn  = module.s3.bucket_arn
+  documentdb_arn = module.documentdb.cluster_arn
+  # Empty list uses IAM module wildcard fallback (/ecs/sendit-{env}/*).
+  # Log groups are created in the ECS module; avoids iam ↔ cloudwatch ↔ ecs cycle.
+  log_group_arns = []
 }
 
 # ─── S3 ──────────────────────────────────────────────────────────────────────
@@ -75,15 +77,15 @@ module "s3" {
 
 # ─── DocumentDB (MongoDB-compatible) ─────────────────────────────────────────
 module "documentdb" {
-  source               = "./modules/documentdb"
-  environment          = var.environment
-  vpc_id               = module.networking.vpc_id
-  private_subnet_ids   = module.networking.private_subnet_ids
-  ecs_sg_id            = module.ecs.ecs_tasks_sg_id
-  db_master_username   = var.db_master_username
-  db_master_password   = var.db_master_password
-  instance_count       = var.documentdb_instance_count
-  instance_class       = var.documentdb_instance_class
+  source             = "./modules/documentdb"
+  environment        = var.environment
+  vpc_id             = module.networking.vpc_id
+  private_subnet_ids = module.networking.private_subnet_ids
+  ecs_sg_id          = module.ecs.ecs_tasks_sg_id
+  db_master_username = var.db_master_username
+  db_master_password = var.db_master_password
+  instance_count     = var.documentdb_instance_count
+  instance_class     = var.documentdb_instance_class
 }
 
 # ─── ElastiCache Redis ────────────────────────────────────────────────────────
@@ -111,47 +113,49 @@ module "messaging" {
 
 # ─── Application Load Balancer ────────────────────────────────────────────────
 module "alb" {
-  source             = "./modules/alb"
-  environment        = var.environment
-  vpc_id             = module.networking.vpc_id
-  public_subnet_ids  = module.networking.public_subnet_ids
+  source            = "./modules/alb"
+  environment       = var.environment
+  vpc_id            = module.networking.vpc_id
+  public_subnet_ids = module.networking.public_subnet_ids
   # certificate_arn    = module.acm.certificate_arn
 }
 
 # ─── ECS Cluster + Services ──────────────────────────────────────────────────
 module "ecs" {
-  source               = "./modules/ecs"
-  environment          = var.environment
-  aws_region           = var.aws_region
-  vpc_id               = module.networking.vpc_id
-  private_subnet_ids   = module.networking.private_subnet_ids
-  alb_sg_id            = module.alb.alb_sg_id
-  alb_listener_arn     = module.alb.http_listener_arn
+  source                = "./modules/ecs"
+  environment           = var.environment
+  aws_region            = var.aws_region
+  vpc_id                = module.networking.vpc_id
+  private_subnet_ids    = module.networking.private_subnet_ids
+  alb_sg_id             = module.alb.alb_sg_id
+  alb_listener_arn      = module.alb.http_listener_arn
   alb_listener_http_arn = module.alb.http_listener_arn
-  alb_tg_arns          = module.alb.service_tg_arns
-  execution_role_arn   = module.iam.ecs_execution_role_arn
-  task_role_arn        = module.iam.ecs_task_role_arn
-  secrets_arn          = module.secrets.secret_arn
+  alb_tg_arns           = module.alb.service_tg_arns
+  execution_role_arn    = module.iam.ecs_execution_role_arn
+  task_role_arn         = module.iam.ecs_task_role_arn
+  secrets_arn           = module.secrets.secret_arn
 
   # Docker images — set via CI/CD, default to latest for initial bootstrap
-  dockerhub_username   = var.dockerhub_username
-  service_images       = var.service_images
+  dockerhub_username = var.dockerhub_username
+  service_images     = var.service_images
 
   # DocumentDB
-  documentdb_endpoint  = module.documentdb.cluster_endpoint
-  db_master_username   = var.db_master_username
-  db_master_password   = var.db_master_password
+  documentdb_endpoint = module.documentdb.cluster_endpoint
+  db_master_username  = var.db_master_username
+  db_master_password  = var.db_master_password
 
   # Redis
-  redis_endpoint       = module.redis.primary_endpoint
-  redis_port           = module.redis.port
+  redis_endpoint = module.redis.primary_endpoint
+  redis_port     = module.redis.port
 
   # Messaging
-  sns_topic_arn        = module.messaging.sns_topic_arn
-  sqs_queue_url        = module.messaging.main_sqs_queue_url
+  sns_topic_arn = module.messaging.sns_topic_arn
+  sqs_queue_url = module.messaging.main_sqs_queue_url
 
   # S3
-  s3_bucket_name       = var.s3_bucket_name
+  s3_bucket_name = var.s3_bucket_name
+
+  enable_autoscaling = var.enable_autoscaling
 }
 
 # ─── CloudWatch ──────────────────────────────────────────────────────────────
@@ -160,9 +164,9 @@ module "cloudwatch" {
   environment = var.environment
   aws_region  = var.aws_region
 
-  # Pass ECS service names for alarm configuration
-  ecs_cluster_name    = module.ecs.cluster_name
-  ecs_service_names   = module.ecs.service_names
+  enable_monitoring = var.enable_cloudwatch_monitoring
+  ecs_cluster_name  = module.ecs.cluster_name
+  ecs_services      = module.ecs.service_name_map
 }
 
 # ─── Data Sources ─────────────────────────────────────────────────────────────

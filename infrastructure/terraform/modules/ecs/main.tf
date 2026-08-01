@@ -23,6 +23,12 @@ variable "redis_endpoint"       {}
 variable "redis_port"           {}
 variable "sns_topic_arn"        {}
 variable "sqs_queue_url"        {}
+variable "enable_autoscaling" {
+  description = "Enable ECS auto scaling (requires application-autoscaling permissions)"
+  type        = bool
+  default     = false
+}
+
 variable "s3_bucket_name"       {}
 
 # ─── ECS Cluster ──────────────────────────────────────────────────────────────
@@ -132,7 +138,7 @@ resource "aws_cloudwatch_log_group" "services" {
 resource "aws_ecs_task_definition" "services" {
   for_each = local.services
 
-  family                   = "sendit-${each.key}"
+  family                   = "sendit-${var.environment}-${each.key}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = each.value.cpu
@@ -207,7 +213,7 @@ resource "aws_ecs_task_definition" "services" {
 resource "aws_ecs_service" "services" {
   for_each = local.services
 
-  name            = "sendit-${each.key}-service"
+  name            = "sendit-${var.environment}-${each.key}-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.services[each.key].arn
   desired_count   = each.value.desired
@@ -265,7 +271,7 @@ resource "aws_ecs_service" "services" {
 
 # ─── ECS Auto Scaling ─────────────────────────────────────────────────────────
 resource "aws_appautoscaling_target" "services" {
-  for_each = local.services
+  for_each = var.enable_autoscaling ? local.services : {}
 
   max_capacity       = each.value.max
   min_capacity       = each.value.min
@@ -276,9 +282,9 @@ resource "aws_appautoscaling_target" "services" {
 
 # CPU-based scaling
 resource "aws_appautoscaling_policy" "cpu" {
-  for_each = local.services
+  for_each = var.enable_autoscaling ? local.services : {}
 
-  name               = "sendit-${each.key}-cpu-scaling"
+  name               = "sendit-${var.environment}-${each.key}-cpu-scaling"
   policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.services[each.key].resource_id
   scalable_dimension = aws_appautoscaling_target.services[each.key].scalable_dimension
@@ -296,9 +302,9 @@ resource "aws_appautoscaling_policy" "cpu" {
 
 # Memory-based scaling
 resource "aws_appautoscaling_policy" "memory" {
-  for_each = local.services
+  for_each = var.enable_autoscaling ? local.services : {}
 
-  name               = "sendit-${each.key}-memory-scaling"
+  name               = "sendit-${var.environment}-${each.key}-memory-scaling"
   policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.services[each.key].resource_id
   scalable_dimension = aws_appautoscaling_target.services[each.key].scalable_dimension
@@ -318,6 +324,7 @@ resource "aws_appautoscaling_policy" "memory" {
 output "cluster_name"    { value = aws_ecs_cluster.main.name }
 output "cluster_arn"     { value = aws_ecs_cluster.main.arn }
 output "ecs_tasks_sg_id" { value = aws_security_group.ecs_tasks.id }
-output "service_names"   { value = [for s in aws_ecs_service.services : s.name] }
+output "service_names"    { value = [for s in aws_ecs_service.services : s.name] }
+output "service_name_map" { value = { for k, s in aws_ecs_service.services : k => s.name } }
 output "log_group_arns"  { value = [for g in aws_cloudwatch_log_group.services : g.arn] }
 output "service_ports"   { value = { for k, v in local.services : k => v.port } }
