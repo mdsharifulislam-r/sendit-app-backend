@@ -2,12 +2,13 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import {
   AuthResetPasswordDto,
   ChangePasswordDto,
+  FaceRegistrationDto,
   ForgetPasswordDto,
   LoginDto,
   VerifyEmailDto,
 } from './auth.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { User, UserDocument, ResetToken, ResetTokenDocument } from '../user/user.entity';
+import { User, UserDocument, ResetToken, ResetTokenDocument, FaceVerification, FaceVerificationDocument } from '../user/user.entity';
 import { Model } from 'mongoose';
 import { ApiError } from 'utils/errors/api-error';
 import sendResponse from 'utils/helper/sendResponse';
@@ -23,6 +24,8 @@ import { SocialLoginDto } from '../user/user.dto';
 import { USER_ROLES } from 'utils/enums/user';
 import { CreateDeviceDto } from '../device/device.dto';
 import { CreateReferralDto } from '../referral/referral.dto';
+import { S3Service } from 'utils/helper-modules/upload/s3.service';
+import { detectFace, verifyFace } from 'utils/helper/faceverificationHelper';
 
 @Injectable()
 export class AuthService {
@@ -31,9 +34,11 @@ export class AuthService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(ResetToken.name) private readonly resetTokenModel: Model<ResetTokenDocument>,
+    @InjectModel(FaceVerification.name) private readonly faceVerificationModel: Model<FaceVerificationDocument>,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
-    private readonly snsService: SnsService
+    private readonly snsService: SnsService,
+    private readonly s3Service: S3Service
   ) { }
 
   private async findActiveUserByEmail(email: string): Promise<UserDocument> {
@@ -307,4 +312,145 @@ export class AuthService {
     });
 
   }
+
+  async registerWithFace(body: FaceRegistrationDto, userId: string, imagePath: string) {
+    const { deviceId, type, fingerprint_id } = body
+    if (!imagePath && type == 'face') {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Image is required');
+    }
+    if (!fingerprint_id && type == 'fingerprint') {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Fingerprint id is required');
+    }
+
+    if (type == 'fingerprint') {
+      const exist = await this.faceVerificationModel.findOne({ deviceId: deviceId })
+      if (exist) {
+        await this.faceVerificationModel.findByIdAndUpdate(exist._id, {
+          userId: userId,
+          deviceId: deviceId,
+          fingerprint_id: fingerprint_id
+        });
+        return sendResponse({
+          statusCode: HttpStatus.OK,
+          message: 'Fingerprint registration successful',
+          success: true,
+        });
+      }
+
+
+
+
+      const faceRegistration = await this.faceVerificationModel.create({
+        userId: userId,
+        deviceId: deviceId,
+        fingerprint_id: fingerprint_id
+      });
+      return sendResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Fingerprint registration successful',
+        success: true,
+      });
+    }
+
+
+
+
+    const imageFile = await this.s3Service.rawUploadFile(imagePath)
+    const discrimaniatior = await detectFace(imageFile.url)
+    this.s3Service.deleteFile(imageFile.url)
+
+    const exist = await this.faceVerificationModel.findOne({ deviceId: deviceId })
+    if (exist) {
+      await this.faceVerificationModel.findByIdAndUpdate(exist._id, {
+        userId: userId,
+        deviceId: deviceId,
+        faceDescriptor: discrimaniatior
+      });
+
+      return sendResponse({
+        statusCode: HttpStatus.OK,
+        message: 'face registration successful',
+        success: true,
+      });
+    }
+    const faceRegistration = await this.faceVerificationModel.create({
+      userId: userId,
+      deviceId: deviceId,
+      faceDescriptor: discrimaniatior
+    });
+
+    this.s3Service.deleteFile(imageFile.url)
+
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      message: 'Face registration successful',
+      success: true,
+    });
+  }
+
+
+  async faceverificationAndlogin(body: FaceRegistrationDto, imagePath: string) {
+    if (!imagePath && body.type == 'face') {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Image is required');
+    }
+    if (!body.fingerprint_id && body.type == 'fingerprint') {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Fingerprint id is required');
+    }
+
+    let verification
+    if (body.type == 'face') {
+      const faceVerification = await this.faceVerificationModel.findOne({ deviceId: body.deviceId })
+      if (!faceVerification) {
+        throw new ApiError(HttpStatus.NOT_FOUND, 'Face not found');
+      }
+      const imageFile = await this.s3Service.rawUploadFile(imagePath)
+      const matchFace = await verifyFace(imageFile.url, faceVerification.faceDescriptor)
+      this.s3Service.deleteFile(imageFile.url)
+      if (!matchFace) {
+        throw new ApiError(HttpStatus.UNAUTHORIZED, 'Face not match');
+      }
+      verification = faceVerification
+    }
+    if (body.type == 'fingerprint') {
+
+      const fingerprintVerification = await this.faceVerificationModel.findOne({ deviceId: body.deviceId })
+      if (!fingerprintVerification) {
+        throw new ApiError(HttpStatus.NOT_FOUND, 'Fingerprint not found');
+      }
+      if (body.fingerprint_id !== fingerprintVerification.fingerprint_id) {
+        throw new ApiError(HttpStatus.UNAUTHORIZED, 'Fingerprint not match');
+      }
+      verification = fingerprintVerification
+    }
+
+    const user = await this.userModel.findById(verification.userId)
+    if (!user) {
+      throw new ApiError(HttpStatus.NOT_FOUND, 'User not found');
+    }
+    if (user.status === 'delete') {
+      throw new ApiError(HttpStatus.FORBIDDEN, 'This account has been deactivated');
+    }
+    const accessToken = this.jwtService.sign({
+      id: user._id.toString(),
+      role: user.role,
+      email: user.email,
+      deviceId: body?.deviceInfo?.device_id ? body?.deviceInfo?.device_id : null,
+    });
+
+    if (body.deviceInfo) {
+      await this.snsService.publish<CreateDeviceDto>('device.create', {
+        ...body.deviceInfo,
+        user: user._id.toString(),
+      })
+    }
+
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      message: 'Login successful',
+      data: { accessToken, role: user.role },
+      success: true,
+    });
+  }
+
+
 }

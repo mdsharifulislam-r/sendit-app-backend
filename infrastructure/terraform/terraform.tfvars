@@ -9,11 +9,11 @@ environment = "dev"
 # Networking
 vpc_cidr = "10.0.0.0/16"
 
-# Domain (replace with your domain)
+# Domain 
 domain_name = "api.sendit.app"
 
 # Docker Hub
-dockerhub_username = "YOUR_DOCKERHUB_USERNAME"
+dockerhub_username = "shariful1234"
 
 # Service images — updated by CI/CD automatically
 service_images = {
@@ -27,7 +27,7 @@ service_images = {
 
 # DocumentDB
 db_master_username        = "senditadmin"
-db_master_password        = "REPLACE_WITH_STRONG_PASSWORD"
+db_master_password        = "SenditDev2026!"
 documentdb_instance_count = 2
 documentdb_instance_class = "db.t3.medium"
 

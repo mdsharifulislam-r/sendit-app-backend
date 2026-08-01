@@ -45,5 +45,11 @@ export class CreateMessageDto {
     })
     documents?: string[]
 
+    @ApiProperty({
+        description: "The ID of the report.",
+        example: '123456789012345678901234',
+    })
+    @IsMongoId()
+    @IsOptional()
     report?: Types.ObjectId
 }

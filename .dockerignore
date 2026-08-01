@@ -20,3 +20,5 @@ eslint.config.mjs
 .prettierrc
 scripts
 public
+.terraform
+*.tfstate*

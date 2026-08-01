@@ -233,7 +233,7 @@ export class WalletService {
                 destination: user.stripe_account_id,
                 description: 'Withdrawal',
             })
-            await this.cacheService.del(`wallet:${userId}`)
+            await this.cacheService.deleteByPattern(`wallet:${userId}`)
             await this.snsService.publish('transaction.created', {
                 title: "Withdrawal",
                 amount: Number((amount / 100).toFixed(2)),

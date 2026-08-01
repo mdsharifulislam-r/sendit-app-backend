@@ -5,6 +5,7 @@ import { USER_ROLES } from 'utils/enums/user';
 import { Auth } from 'utils/guards/auth.guard';
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { CancelTripDto, CreateAdminDto, UpdateAdminDto } from './admin.dto';
+import { CreateUserDto } from 'apps/root/src/user/user.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -34,15 +35,16 @@ export class AdminController {
   }
 
 
-
-
-
-
-
   @Get('users')
   @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
   getUsers(@Query() query: Record<string, any>) {
     return this.adminService.getUserList(query)
+  }
+
+  @Post('users/add-user')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  addUser(@Body() body: CreateUserDto) {
+    return this.adminService.addUserIntoDb(body)
   }
 
   @Get('users/:id')
@@ -104,6 +106,12 @@ export class AdminController {
   @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
   getOverview() {
     return this.adminService.getAllOverViewOfPlatform()
+  }
+
+  @Get('analytics')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  getSystemAnalytics() {
+    return this.adminService.getSystemAnalyticsAndReports()
   }
 
 

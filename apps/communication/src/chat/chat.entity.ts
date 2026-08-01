@@ -52,6 +52,9 @@ export class Chat {
     @Prop({ type: String, default: null })
     description: string
 
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Report', default: null })
+    current_report: Types.ObjectId
+
 }
 
 

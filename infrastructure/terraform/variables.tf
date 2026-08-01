@@ -3,13 +3,13 @@
 variable "aws_region" {
   description = "AWS region for all resources"
   type        = string
-  default     = "eu-north-1"
+  default     = "eu-central-1"
 }
 
 variable "environment" {
   description = "Deployment environment (production, staging)"
   type        = string
-  default     = "production"
+  default     = "dev"
 }
 
 # ─── Networking ───────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ variable "db_master_username" {
 }
 
 variable "db_master_password" {
-  description = "DocumentDB master password"
+  description = "DocumentDB master password (no /, @, \", or spaces allowed)"
   type        = string
   sensitive   = true
 }
@@ -88,5 +88,17 @@ variable "redis_node_type" {
 variable "s3_bucket_name" {
   description = "Name of the S3 bucket for file uploads"
   type        = string
-  default     = "sendit-uploads-production"
+  default     = "sendit-dev-uploads"
+}
+
+variable "enable_autoscaling" {
+  description = "Enable ECS auto scaling (requires application-autoscaling permissions)"
+  type        = bool
+  default     = false
+}
+
+variable "enable_cloudwatch_monitoring" {
+  description = "Enable CloudWatch alarms and dashboard (requires cloudwatch permissions)"
+  type        = bool
+  default     = false
 }

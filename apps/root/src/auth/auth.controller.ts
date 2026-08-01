@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Headers, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import {
   AuthResetPasswordDto,
   ChangePasswordDto,
+  FaceRegistrationDto,
   ForgetPasswordDto,
   LoginDto,
   VerifyEmailDto,
@@ -17,6 +18,8 @@ import {
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { Auth } from 'utils/guards/auth.guard';
 import { SocialLoginDto } from '../user/user.dto';
+import { FileUpload } from 'utils/decorators/file-uploader.decorator';
+import { GetFile } from 'utils/decorators/get-file.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -81,5 +84,52 @@ export class AuthController {
     @CurrentUser() user: any,
   ) {
     return this.authService.changePassword(payload, user.id);
+  }
+
+  @Post('face-register')
+  @Auth()
+  @HttpCode(HttpStatus.OK)
+  @FileUpload({
+    fields: [
+      {
+        fieldName: "image",
+        maxCount: 1
+      }
+    ]
+  })
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Face register (authenticated users only)' })
+  @ApiResponse({ status: 200, description: 'Face register successful.' })
+  faceRegister(
+    @Body() payload: FaceRegistrationDto,
+    @CurrentUser() user: any,
+    @GetFile('image') image: string[]
+  ) {
+    return this.authService.registerWithFace(payload, user.id, image?.[0]);
+  }
+
+  @Post('verify-face')
+  @Auth()
+  @HttpCode(HttpStatus.OK)
+  @FileUpload({
+    fields: [
+      {
+        fieldName: "image",
+        maxCount: 1
+      }
+    ]
+  })
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Verify face (authenticated users only)' })
+  @ApiResponse({ status: 200, description: 'Face verified successfully.' })
+  verifyFace(
+    @Body() payload: FaceRegistrationDto,
+    @CurrentUser() user: any,
+    @GetFile('image') image: string[]
+  ) {
+    if (typeof payload.deviceInfo == "string") {
+      payload.deviceInfo = JSON.parse(payload.deviceInfo)
+    }
+    return this.authService.faceverificationAndlogin(payload, image?.[0]);
   }
 }

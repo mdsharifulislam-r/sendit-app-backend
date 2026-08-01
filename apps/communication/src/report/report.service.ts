@@ -10,11 +10,16 @@ import { CreateNotificationDto, FilePathType } from '../communication.dto';
 import QueryBuilder from 'utils/queryBuilder/queryBuilder';
 import { CacheService } from 'utils/helper-modules/cache/cache.service';
 import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
+import { Booking, BookingDocument } from 'apps/booking/src/booking.entity';
+import { ApiError } from 'utils/errors/api-error';
+import { Chat, ChatDocument } from '../chat/chat.entity';
 
 @Injectable()
 export class ReportService {
     constructor(
         @InjectModel(Report.name) private readonly reportModel: Model<ReportDocument>,
+        @InjectModel(Booking.name) private readonly bookingModel: Model<BookingDocument>,
+        @InjectModel(Chat.name) private readonly chatModel: Model<ChatDocument>,
         private readonly snsService: SnsService,
         private readonly s3Service: S3Service,
         private readonly cacheService: CacheService
@@ -84,7 +89,12 @@ export class ReportService {
     }
 
     async getSingleReport(reportId: string) {
-        const report = await this.reportModel.findById(reportId).populate('user', 'name email contact image')
+        const report = await this.reportModel.findById(reportId)
+            .populate('user', 'name email contact image')
+            .populate('booking', '')
+            .populate('trip', 'id departure_address return_address departure_date return_date transport_type available_space_kg pricing_details departure_location return_location createdAt')
+            .populate('transporter', 'name email contact image')
+            .populate('receiver', 'name email contact image')
         return sendResponse({
             message: 'report fetched successfully',
             success: true,
@@ -113,6 +123,116 @@ export class ReportService {
             statusCode: 200,
         })
     }
+
+
+    async createReportFromAdmin(report: CreateReportDto, user: any) {
+        const booking = await this.bookingModel.findOne({ id: report.booking })
+
+        if (!booking) {
+            throw new ApiError(404, 'Booking not found')
+        }
+
+        report.trip = booking.trip
+        report.transporter = booking.transporter
+        report.receiver = booking.receiver
+        report.booking = booking._id as any
+        const createdReport = await this.reportModel.create({
+            ...report,
+            user
+        })
+        await Promise.all([
+            this.snsService.publish('chat.report.create', createdReport),
+            this.snsService.publish<CreateNotificationDto>('notification.send', {
+                title: `Report Against ${createdReport.report_type}`,
+                message: `Admins are carefully take care of your case`,
+                isRead: false,
+                receiver: [report.user],
+                filePath: FilePathType.REPORT,
+                referenceId: createdReport._id.toString(),
+            }),
+            this.snsService.publish<CreateNotificationDto>('notification.send', {
+                title: 'New report has been submitted',
+                message: `${createdReport.report_id} has been submitted. please check it.`,
+                isRead: false,
+                filePath: FilePathType.REPORT,
+                referenceId: createdReport._id.toString(),
+            }),
+            this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+                action: 'Report Submitted',
+                user: user as any,
+                old_value: ``,
+                new_value: ``,
+                reason: report.description
+            })
+        ]);
+        await this.cacheService.deleteByPattern('report')
+        return sendResponse({
+            message: 'report created successfully',
+            success: true,
+            statusCode: 200,
+            data: createdReport
+        })
+    }
+
+
+    async createChatWithSupport(userId: string) {
+        const existingChat = await this.chatModel.findOne({
+            participants: { $in: [userId] },
+            is_support_message: true
+        })
+        if (existingChat) {
+            return sendResponse({
+                message: 'Chat already exists',
+                success: true,
+                statusCode: 200,
+                data: existingChat
+            })
+        }
+
+        const createdChat = await this.chatModel.create({
+            participants: [userId],
+            is_support_message: true,
+
+        })
+        return sendResponse({
+            message: 'Chat created successfully',
+            success: true,
+            statusCode: 200,
+            data: createdChat
+        })
+    }
+
+    // async refundRequestForAdmin(bookingId: string) {
+    //     const booking = await this.bookingModel.findById(bookingId)
+    //     if (!booking) {
+    //         throw new ApiError(404, 'Booking not found')
+    //     }
+    //     const existingReport = await this.reportModel.findOne({
+    //         booking: booking._id,
+    //         report_type: 'refund_request'
+    //     })
+    //     if (existingReport) {
+    //         throw new ApiError(400, 'Refund request already exists')
+    //     }
+    //     const createdReport = await this.reportModel.create({
+    //         report_type: 'refund_request',
+    //         user: booking.user,
+    //         booking: booking._id,
+    //         trip: booking.trip,
+    //         transporter: booking.transporter,
+    //         receiver: booking.receiver,
+    //         description: 'Refund request',
+    //     })
+    //     return sendResponse({
+    //         message: 'Refund request created successfully',
+    //         success: true,
+    //         statusCode: 200,
+    //         data: createdReport
+    //     })
+    // }
+
+
+
 
 
 }

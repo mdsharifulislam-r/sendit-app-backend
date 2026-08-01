@@ -13,8 +13,29 @@ export class Report {
     description: string
     @Prop({ required: false, type: [String] })
     attachments: string[]
-    @Prop({ required: false, type: String, enum: ['open', 'closed'], default: 'open' })
+    @Prop({ required: false, type: String, enum: ['open', 'closed', 'resolved'], default: 'open' })
     status: "open" | "closed"
+
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Trip' })
+    trip: Types.ObjectId
+
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Booking' })
+    booking: Types.ObjectId
+
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+    transporter: Types.ObjectId
+
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+    receiver: Types.ObjectId
+
+    @Prop({ type: Boolean, default: false })
+    is_refunded: boolean
+
+    @Prop({ type: Number, default: 0 })
+    refunded_amount: number
+
+    @Prop({ type: String, default: '' })
+    refund_reason: string
 
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Chat' })
     chat: Types.ObjectId

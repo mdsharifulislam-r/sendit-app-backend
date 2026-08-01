@@ -7,10 +7,18 @@ import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
 import { SqsModule } from 'utils/helper-modules/sns/sqs.module';
 import { S3Service } from 'utils/helper-modules/upload/s3.service';
 import { AuthModule } from 'apps/root/src/auth/auth.module';
+import { Booking, BookingSchema } from 'apps/booking/src/booking.entity';
+import { Chat, ChatSchema } from '../chat/chat.entity';
+
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Report.name, schema: ReportSchema }]),
+    MongooseModule.forFeature([
+      { name: Report.name, schema: ReportSchema },
+      { name: Booking.name, schema: BookingSchema },
+      { name: Chat.name, schema: ChatSchema },
+
+    ]),
     RedisCacheModule,
     SqsModule,
     AuthModule

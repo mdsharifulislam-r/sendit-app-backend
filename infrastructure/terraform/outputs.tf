@@ -59,7 +59,7 @@ output "cloudwatch_alarm_topic_arn" {
   value       = module.cloudwatch.alarm_topic_arn
 }
 
-output "acm_certificate_arn" {
-  description = "ACM certificate ARN"
-  value       = module.acm.certificate_arn
-}
+# output "acm_certificate_arn" {
+#   description = "ACM certificate ARN (disabled — ACM not deployed yet)"
+#   value       = module.acm.certificate_arn
+# }
