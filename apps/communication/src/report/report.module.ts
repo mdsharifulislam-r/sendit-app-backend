@@ -9,6 +9,7 @@ import { S3Service } from 'utils/helper-modules/upload/s3.service';
 import { AuthModule } from 'apps/root/src/auth/auth.module';
 import { Booking, BookingSchema } from 'apps/booking/src/booking.entity';
 import { Chat, ChatSchema } from '../chat/chat.entity';
+import { StripeModule } from 'utils/helper-modules/stripe/stripe.module';
 
 
 @Module({
@@ -21,7 +22,8 @@ import { Chat, ChatSchema } from '../chat/chat.entity';
     ]),
     RedisCacheModule,
     SqsModule,
-    AuthModule
+    AuthModule,
+    StripeModule
   ],
   controllers: [ReportController],
   providers: [ReportService, S3Service],

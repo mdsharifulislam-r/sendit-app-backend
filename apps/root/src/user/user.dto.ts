@@ -61,6 +61,17 @@ export class UpdateProfileDto {
   image?: string;
 
 
+  @ApiPropertyOptional({ example: true, description: 'Face verified' })
+  @IsOptional()
+  @IsBoolean()
+  is_face_verified?: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Fingerprint verified' })
+  @IsOptional()
+  @IsBoolean()
+  is_fingerprint_verified?: boolean;
+
+
 }
 
 

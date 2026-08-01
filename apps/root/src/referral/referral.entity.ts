@@ -20,6 +20,18 @@ export class Referral extends Document {
         ref: "Discount",
     })
     discount: Types.ObjectId
+
+
+    @Prop({
+        type: [
+            {
+                type: MongooseSchema.Types.ObjectId,
+                ref: "User",
+            }
+        ],
+        default: []
+    })
+    taken_by: Types.ObjectId[]
 }
 
 

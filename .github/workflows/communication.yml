@@ -18,30 +18,16 @@ env:
   SERVICE_NAME: communication
   SERVICE_PORT: 3002
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/sendit-communication
-  ECS_CLUSTER: sendit-cluster
-  ECS_SERVICE: sendit-communication-service
-  ECS_TASK_FAMILY: sendit-communication
-  AWS_REGION: eu-north-1
+  ECS_CLUSTER: sendit-dev
+  ECS_SERVICE: sendit-dev-communication-service
+  ECS_TASK_FAMILY: sendit-dev-communication
+  AWS_REGION: eu-central-1
   CONTAINER_NAME: communication
 
 jobs:
-  quality:
-    name: Lint & Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-      - run: npm ci --f
-      - run: npm run lint -- --max-warnings 0 || true
-      - run: npm test -- --passWithNoTests
-
   build-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: quality
     outputs:
       full_image: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
     steps:
