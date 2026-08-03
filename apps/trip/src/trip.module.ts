@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TripController } from './trip.controller';
 import { TripService } from './trip.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { mongooseFactory } from 'utils/config/database';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from 'apps/root/src/user/user.entity';
 
@@ -28,9 +29,7 @@ import { HealthModule } from 'utils/health/health.module';
 
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('DB_URI') || 'mongodb://localhost:27017/sendit',
-      }),
+      useFactory: mongooseFactory,
     }),
 
     MongooseModule.forFeature([

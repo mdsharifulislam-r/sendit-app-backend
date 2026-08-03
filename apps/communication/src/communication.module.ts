@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CommunicationController } from './communication.controller';
 import { CommunicationService } from './communication.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { mongooseFactory } from 'utils/config/database';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EmailModule } from 'utils/helper-modules/email/email.module';
 import { Notification, NotificationSchema } from './communication.entity';
@@ -28,9 +29,7 @@ import { HealthModule } from 'utils/health/health.module';
 
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('DB_URI') || 'mongodb://localhost:27017/sendit',
-      }),
+      useFactory: mongooseFactory,
     }),
     EmailModule,
     MongooseModule.forFeature([

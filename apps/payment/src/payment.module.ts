@@ -4,6 +4,7 @@ import { PaymentService } from './payment.service';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
+import { mongooseFactory } from 'utils/config/database';
 import { WalletModule } from './wallet/wallet.module';
 import { StripeService } from 'utils/helper-modules/stripe/stripe.service';
 import { AuthModule } from 'apps/root/src/auth/auth.module';
@@ -27,9 +28,7 @@ import { HealthModule } from 'utils/health/health.module';
 
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('DB_URI') || 'mongodb://localhost:27017/sendit',
-      }),
+      useFactory: mongooseFactory,
     }),
 
     WalletModule,
