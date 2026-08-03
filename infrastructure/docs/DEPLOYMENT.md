@@ -1,6 +1,7 @@
 # Sendit Backend — Production Infrastructure Documentation
 
 ## Table of Contents
+
 1. [Architecture Overview](#1-architecture-overview)
 2. [Infrastructure Diagram](#2-infrastructure-diagram)
 3. [Microservice Inventory](#3-microservice-inventory)
@@ -23,22 +24,23 @@
 
 ## 1. Architecture Overview
 
-Sendit is a NestJS monorepo composed of **7 independent Node.js microservices**. Each service is bundled by Webpack into a single `main.js` and deployed as a separate Docker container on AWS ECS Fargate.
+Sendit is a NestJS monorepo composed of **6 independent Node.js microservices** (plus a local gateway that is ignored in production). Each service is bundled by Webpack into a single `main.js` and deployed as a separate Docker container on AWS ECS Fargate.
 
-**Traffic Flow:**
+**Traffic Flow (Direct via ALB):**
+
 ```
-Internet → ALB (HTTPS:443) → Gateway Service (port 3010)
-                                    ↓
-                     Reverse-proxy based on URL prefix
-                                    ↓
-          ┌──────────┬──────────┬──────────┬──────────┬──────────┐
-          │ root     │ trip     │ booking  │ payment  │ admin    │
-          │ :3000    │ :3001    │ :3003    │ :3004    │ :3005    │
-          └──────────┴──────────┴──────────┴──────────┴──────────┘
-                              communication :3002
+Internet → ALB (HTTPS:443)
+                 │
+                 ├─► /trip/* ────────► trip :3001
+                 ├─► /booking/* ─────► booking :3003
+                 ├─► /communication/*► communication :3002
+                 ├─► /payment/* ─────► payment :3004
+                 ├─► /admin/* ───────► admin :3005
+                 └─► /* (default) ───► root :3000
 ```
 
 **Async Events (SNS → SQS Fan-out):**
+
 ```
 Any Service → AWS SNS Topic → Fan-out to per-service SQS queues
                                 ├── communication-queue
@@ -57,15 +59,15 @@ Any Service → AWS SNS Topic → Fan-out to per-service SQS queues
                           │                  AWS eu-north-1               │
                           │                                                │
   Internet ─────HTTPS────►│  ALB (Application Load Balancer)              │
-                          │       └── Target Group: gateway:3010          │
+                          │       └── Target Groups: root, trip, etc.     │
                           │                                                │
                           │  ┌─────── Private Subnets (3 AZs) ──────────┐│
                           │  │                                            ││
                           │  │  ECS Fargate Cluster: sendit-production    ││
-                          │  │  ┌────────┐ ┌──────┐ ┌─────────┐         ││
-                          │  │  │gateway │ │ root │ │  trip   │  ...     ││
-                          │  │  │:3010   │ │:3000 │ │ :3001   │         ││
-                          │  │  └────────┘ └──────┘ └─────────┘         ││
+                          │  │  ┌──────┐ ┌──────┐ ┌─────────┐             ││
+                          │  │  │ root │ │ trip │ │ booking │  ...        ││
+                          │  │  │:3000 │ │:3001 │ │ :3003   │             ││
+                          │  │  └──────┘ └──────┘ └─────────┘             ││
                           │  │                                            ││
                           │  │  ┌─────────────────────────────────────┐  ││
                           │  │  │ DocumentDB (MongoDB-compatible)      │  ││
@@ -92,20 +94,23 @@ Any Service → AWS SNS Topic → Fan-out to per-service SQS queues
 
 ## 3. Microservice Inventory
 
-| Service | Image | Port | CPU | Memory | Min | Max | Health |
-|---------|-------|------|-----|--------|-----|-----|--------|
-| gateway | sendit-gateway | 3010 | 256 | 512 MB | 1 | 5 | /health |
-| root | sendit-root | 3000 | 512 | 1024 MB | 1 | 5 | /health |
-| trip | sendit-trip | 3001 | 512 | 1024 MB | 1 | 8 | /health |
-| booking | sendit-booking | 3003 | 512 | 1024 MB | 1 | 8 | /health |
-| communication | sendit-communication | 3002 | 512 | 1024 MB | 1 | 5 | /health |
-| payment | sendit-payment | 3004 | 512 | 1024 MB | 1 | 5 | /health |
-| admin | sendit-admin | 3005 | 256 | 512 MB | 1 | 3 | /health |
+| Service       | Image                | Port | CPU | Memory  | Min | Max | Health  |
+| ------------- | -------------------- | ---- | --- | ------- | --- | --- | ------- |
+| root          | sendit-root          | 3000 | 512 | 1024 MB | 1   | 5   | /health |
+| trip          | sendit-trip          | 3001 | 512 | 1024 MB | 1   | 8   | /health |
+| booking       | sendit-booking       | 3003 | 512 | 1024 MB | 1   | 8   | /health |
+| communication | sendit-communication | 3002 | 512 | 1024 MB | 1   | 5   | /health |
+| payment       | sendit-payment       | 3004 | 512 | 1024 MB | 1   | 5   | /health |
+| admin         | sendit-admin         | 3005 | 256 | 512 MB  | 1   | 3   | /health |
 
 > **Note:** You must add a `/health` endpoint to each service. The simplest implementation:
+>
 > ```typescript
-> @Controller() class AppController {
->   @Get('health') health() { return { status: 'ok' }; }
+> @Controller()
+> class AppController {
+>   @Get('health') health() {
+>     return { status: 'ok' };
+>   }
 > }
 > ```
 
@@ -114,12 +119,15 @@ Any Service → AWS SNS Topic → Fan-out to per-service SQS queues
 ## 4. Docker Strategy
 
 ### Multi-Stage Build
+
 The [Dockerfile](../../Dockerfile) uses three stages:
+
 1. **`deps`** — installs all dependencies (including dev), then copies only `node_modules_prod`
 2. **`builder`** — runs `nest build <SERVICE_NAME>` to produce `dist/`
 3. **`runner`** — copies only `dist/` and `node_modules_prod` into a clean Alpine image
 
 ### Image Naming Convention
+
 ```
 docker.io/<dockerhub_username>/sendit-<service>:<tag>
 
@@ -130,6 +138,7 @@ Tags used:
 ```
 
 ### Build Command (CI/CD)
+
 ```bash
 docker build \
   --build-arg SERVICE_NAME=gateway \
@@ -168,18 +177,19 @@ Only affected service workflows trigger
 ```
 
 ### Path Filters — What Triggers What
-| Changed Path | Triggered Workflows |
-|---|---|
-| `apps/gateway/**` | gateway only |
-| `apps/trip/**` | trip only |
-| `apps/booking/**` | booking + payment |
-| `apps/payment/**` | payment only |
-| `apps/communication/**` | communication only |
-| `apps/admin/**` | admin only |
-| `apps/root/**` | root only |
-| `utils/**` | **ALL** services |
-| `package.json` | **ALL** services |
-| `Dockerfile` | **ALL** services |
+
+| Changed Path            | Triggered Workflows |
+| ----------------------- | ------------------- |
+| `apps/gateway/**`       | gateway only        |
+| `apps/trip/**`          | trip only           |
+| `apps/booking/**`       | booking + payment   |
+| `apps/payment/**`       | payment only        |
+| `apps/communication/**` | communication only  |
+| `apps/admin/**`         | admin only          |
+| `apps/root/**`          | root only           |
+| `utils/**`              | **ALL** services    |
+| `package.json`          | **ALL** services    |
+| `Dockerfile`            | **ALL** services    |
 
 ---
 
@@ -206,7 +216,9 @@ infrastructure/terraform/
 ```
 
 ### First-Time Apply Order
+
 Terraform handles ordering automatically, but conceptually:
+
 1. Networking (VPC must exist before all others)
 2. Security Groups (within ECS module)
 3. DocumentDB, Redis (need VPC + SGs)
@@ -221,12 +233,14 @@ Terraform handles ordering automatically, but conceptually:
 ## 7. Security & IAM
 
 ### IAM Roles
-| Role | Purpose | Permissions |
-|------|---------|-------------|
-| `ecs-execution-role` | ECS agent pulls images, reads secrets | ECR, CloudWatch Logs, Secrets Manager read |
-| `ecs-task-role` | Application code inside containers | S3 put/get/delete, SNS publish, SQS receive/delete, CloudWatch logs write, Secrets Manager read |
+
+| Role                 | Purpose                               | Permissions                                                                                     |
+| -------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `ecs-execution-role` | ECS agent pulls images, reads secrets | ECR, CloudWatch Logs, Secrets Manager read                                                      |
+| `ecs-task-role`      | Application code inside containers    | S3 put/get/delete, SNS publish, SQS receive/delete, CloudWatch logs write, Secrets Manager read |
 
 ### Network Security
+
 - ALB in **public subnets**, ECS tasks in **private subnets**
 - ECS tasks only reachable from ALB (SG rule)
 - DocumentDB only reachable from ECS tasks (SG rule)
@@ -234,6 +248,7 @@ Terraform handles ordering automatically, but conceptually:
 - No tasks have public IPs
 
 ### TLS
+
 - ALB terminates TLS using ACM certificate
 - DocumentDB: TLS enabled (`tls=enabled` parameter group)
 - Redis: Transit encryption enabled
@@ -245,6 +260,7 @@ Terraform handles ordering automatically, but conceptually:
 All secrets are stored in **AWS Secrets Manager** at path `sendit/production/app-secrets`.
 
 ECS task definitions reference individual keys using the `secrets` field:
+
 ```json
 {
   "name": "JWT_SECRET",
@@ -253,6 +269,7 @@ ECS task definitions reference individual keys using the `secrets` field:
 ```
 
 ### Populating Secrets (first-time setup)
+
 ```bash
 aws secretsmanager put-secret-value \
   --secret-id sendit/production/app-secrets \
@@ -270,19 +287,23 @@ aws secretsmanager put-secret-value \
 ## 9. Monitoring & Logging
 
 ### CloudWatch Log Groups
+
 Each service writes to `/ecs/sendit-production/<service-name>` with 30-day retention.
 
 ### CloudWatch Alarms (per service)
-| Alarm | Threshold | Action |
-|-------|-----------|--------|
-| CPU High | > 85% for 2min | Alert via SNS |
-| Memory High | > 85% for 2min | Alert via SNS |
-| Running Tasks Low | < 1 task | Alert via SNS |
+
+| Alarm             | Threshold      | Action        |
+| ----------------- | -------------- | ------------- |
+| CPU High          | > 85% for 2min | Alert via SNS |
+| Memory High       | > 85% for 2min | Alert via SNS |
+| Running Tasks Low | < 1 task       | Alert via SNS |
 
 ### Dashboard
+
 A CloudWatch dashboard `sendit-production` shows CPU and Memory utilization for all services.
 
 ### Subscribe to Alarms
+
 ```bash
 aws sns subscribe \
   --topic-arn <alarm-topic-arn> \
@@ -295,27 +316,29 @@ aws sns subscribe \
 ## 10. Scaling
 
 ### ECS Auto Scaling
-| Service | Trigger | Scale Out | Scale In |
-|---------|---------|-----------|----------|
-| All | CPU > 70% | Immediately (60s cooldown) | After 5min (300s cooldown) |
-| All | Memory > 75% | Immediately (60s cooldown) | After 5min (300s cooldown) |
+
+| Service | Trigger      | Scale Out                  | Scale In                   |
+| ------- | ------------ | -------------------------- | -------------------------- |
+| All     | CPU > 70%    | Immediately (60s cooldown) | After 5min (300s cooldown) |
+| All     | Memory > 75% | Immediately (60s cooldown) | After 5min (300s cooldown) |
 
 ### Capacity
-| Service | Min Tasks | Max Tasks |
-|---------|-----------|-----------|
-| gateway | 1 | 5 |
-| root | 1 | 5 |
-| trip | 1 | 8 |
-| booking | 1 | 8 |
-| communication | 1 | 5 |
-| payment | 1 | 5 |
-| admin | 1 | 3 |
+
+| Service       | Min Tasks | Max Tasks |
+| ------------- | --------- | --------- |
+| root          | 1         | 5         |
+| trip          | 1         | 8         |
+| booking       | 1         | 8         |
+| communication | 1         | 5         |
+| payment       | 1         | 5         |
+| admin         | 1         | 3         |
 
 ---
 
 ## 11. Deployment: Manual
 
 ### Prerequisites
+
 ```bash
 # Install Terraform >= 1.6
 # Install AWS CLI >= 2
@@ -327,6 +350,7 @@ docker login
 ```
 
 ### Step 1 — Bootstrap Terraform State Backend
+
 ```bash
 # Create S3 bucket for state
 aws s3 mb s3://sendit-terraform-state --region eu-north-1
@@ -344,6 +368,7 @@ aws dynamodb create-table \
 ```
 
 ### Step 2 — Initialize Terraform
+
 ```bash
 cd infrastructure/terraform
 cp terraform.tfvars.example terraform.tfvars
@@ -354,6 +379,7 @@ terraform apply tfplan
 ```
 
 ### Step 3 — Populate Secrets Manager
+
 ```bash
 # After terraform apply, get the secret ARN from outputs
 terraform output secrets_arn
@@ -365,6 +391,7 @@ aws secretsmanager put-secret-value \
 ```
 
 ### Step 4 — Build and Push Docker Images
+
 ```bash
 # For each service (replace gateway with each service name)
 docker build \
@@ -379,10 +406,12 @@ docker push your-username/sendit-gateway:v1.0.0
 ```
 
 ### Step 5 — Force ECS Redeployment
+
 ```bash
+# Force deployment for root service as an example (repeat for other services)
 aws ecs update-service \
   --cluster sendit-production \
-  --service sendit-gateway-service \
+  --service sendit-root-service \
   --force-new-deployment \
   --region eu-north-1
 ```
@@ -392,16 +421,18 @@ aws ecs update-service \
 ## 12. Deployment: Automated (CI/CD)
 
 ### Setup GitHub Secrets
+
 Go to your GitHub repository → Settings → Secrets → Actions and add:
 
-| Secret Name | Value |
-|---|---|
-| `DOCKERHUB_USERNAME` | Your Docker Hub username |
-| `DOCKERHUB_TOKEN` | Docker Hub access token (not password) |
-| `AWS_ACCESS_KEY_ID` | IAM user access key |
-| `AWS_SECRET_ACCESS_KEY` | IAM user secret key |
+| Secret Name             | Value                                  |
+| ----------------------- | -------------------------------------- |
+| `DOCKERHUB_USERNAME`    | Your Docker Hub username               |
+| `DOCKERHUB_TOKEN`       | Docker Hub access token (not password) |
+| `AWS_ACCESS_KEY_ID`     | IAM user access key                    |
+| `AWS_SECRET_ACCESS_KEY` | IAM user secret key                    |
 
 ### Trigger a Deployment
+
 ```bash
 # Trigger specific service
 git add apps/trip/
@@ -411,6 +442,7 @@ git push origin main
 ```
 
 ### Manual Trigger
+
 Go to GitHub → Actions → Select workflow → Run workflow
 
 ---
@@ -418,9 +450,11 @@ Go to GitHub → Actions → Select workflow → Run workflow
 ## 13. Rollback Strategy
 
 ### Automatic Rollback
+
 ECS deployment circuit breaker is enabled. If the new task fails health checks, ECS automatically rolls back to the previous task definition.
 
 ### Manual Rollback via AWS CLI
+
 ```bash
 # List recent task definition revisions
 aws ecs list-task-definitions \
@@ -436,6 +470,7 @@ aws ecs update-service \
 ```
 
 ### Rollback via Docker Tag
+
 ```bash
 # Re-tag a previous image as latest
 docker pull your-username/sendit-trip:sha-abc123
@@ -454,18 +489,22 @@ aws ecs update-service \
 ## 14. Disaster Recovery
 
 ### Database Backups
+
 - **DocumentDB**: Automated backups every 24h at 02:00 UTC, retained 7 days
 - **Restore**: `aws docdb restore-db-cluster-from-snapshot`
 
 ### Redis Recovery
+
 - Redis data is ephemeral cache — no persistent data requiring recovery
 - ECS tasks reconnect automatically on Redis restart
 
 ### S3
+
 - Versioning enabled — deleted/overwritten files can be restored
 - Files transition to STANDARD_IA after 90 days, GLACIER after 365 days
 
 ### Multi-AZ
+
 - DocumentDB: 2 instances across multiple AZs
 - Redis: 2 nodes, multi-AZ, automatic failover enabled
 - ECS: Tasks distributed across 3 AZs via `private_subnet_ids`
@@ -478,20 +517,21 @@ aws ecs update-service \
 > **Region: eu-north-1 (Stockholm)**
 > Costs are approximate based on 2024 pricing.
 
-| Service | Spec | Est. Monthly |
-|---------|------|-------------|
-| ECS Fargate | 7 services × 2 tasks avg × 512vCPU/1GB | ~$85 |
-| DocumentDB | 2× db.t3.medium | ~$130 |
-| ElastiCache Redis | 2× cache.t3.micro | ~$30 |
-| ALB | 1 ALB + data | ~$20 |
-| NAT Gateway | 3 NAT GWs + data | ~$100 |
-| S3 | Uploads + lifecycle | ~$5 |
-| Secrets Manager | 1 secret | ~$0.40 |
-| CloudWatch | Logs + alarms | ~$10 |
-| SNS + SQS | Per request | ~$5 |
-| **Total** | | **~$385/month** |
+| Service           | Spec                                   | Est. Monthly    |
+| ----------------- | -------------------------------------- | --------------- |
+| ECS Fargate       | 7 services × 2 tasks avg × 512vCPU/1GB | ~$85            |
+| DocumentDB        | 2× db.t3.medium                        | ~$130           |
+| ElastiCache Redis | 2× cache.t3.micro                      | ~$30            |
+| ALB               | 1 ALB + data                           | ~$20            |
+| NAT Gateway       | 3 NAT GWs + data                       | ~$100           |
+| S3                | Uploads + lifecycle                    | ~$5             |
+| Secrets Manager   | 1 secret                               | ~$0.40          |
+| CloudWatch        | Logs + alarms                          | ~$10            |
+| SNS + SQS         | Per request                            | ~$5             |
+| **Total**         |                                        | **~$385/month** |
 
 > **Cost optimization tips:**
+>
 > - Use FARGATE_SPOT for non-critical services (60-70% cheaper)
 > - Use a single NAT GW for non-HA staging environments
 > - Downgrade DocumentDB to `db.t3.medium` or use MongoDB Atlas instead
@@ -502,14 +542,15 @@ aws ecs update-service \
 
 Configure these in: Repository → Settings → Secrets and variables → Actions
 
-| Secret | Description |
-|--------|-------------|
-| `DOCKERHUB_USERNAME` | Docker Hub username |
-| `DOCKERHUB_TOKEN` | Docker Hub personal access token |
-| `AWS_ACCESS_KEY_ID` | AWS IAM access key for GitHub Actions user |
-| `AWS_SECRET_ACCESS_KEY` | AWS IAM secret key |
+| Secret                  | Description                                |
+| ----------------------- | ------------------------------------------ |
+| `DOCKERHUB_USERNAME`    | Docker Hub username                        |
+| `DOCKERHUB_TOKEN`       | Docker Hub personal access token           |
+| `AWS_ACCESS_KEY_ID`     | AWS IAM access key for GitHub Actions user |
+| `AWS_SECRET_ACCESS_KEY` | AWS IAM secret key                         |
 
 > **Best practice**: Create a dedicated `github-actions` IAM user with only the minimum permissions needed:
+>
 > - `ecs:DescribeTaskDefinition`
 > - `ecs:RegisterTaskDefinition`
 > - `ecs:UpdateService`
@@ -522,13 +563,13 @@ Configure these in: Repository → Settings → Secrets and variables → Action
 
 Before applying Terraform, you need to provide:
 
-| Item | Where to Set | Notes |
-|------|-------------|-------|
-| **Domain name** | `terraform.tfvars` → `domain_name` | e.g., `api.sendit.app` |
-| **Docker Hub username** | `terraform.tfvars` + GitHub Secret | |
-| **DB master password** | `terraform.tfvars` → `db_master_password` | 8+ chars, alphanumeric |
-| **Real secrets** | Secrets Manager (after apply) | JWT, Stripe, Email, etc. |
-| **CORS origin** | Secrets Manager | Your frontend domain |
-| **Alarm email** | Subscribe to SNS alarm topic | After apply |
+| Item                    | Where to Set                              | Notes                    |
+| ----------------------- | ----------------------------------------- | ------------------------ |
+| **Domain name**         | `terraform.tfvars` → `domain_name`        | e.g., `api.sendit.app`   |
+| **Docker Hub username** | `terraform.tfvars` + GitHub Secret        |                          |
+| **DB master password**  | `terraform.tfvars` → `db_master_password` | 8+ chars, alphanumeric   |
+| **Real secrets**        | Secrets Manager (after apply)             | JWT, Stripe, Email, etc. |
+| **CORS origin**         | Secrets Manager                           | Your frontend domain     |
+| **Alarm email**         | Subscribe to SNS alarm topic              | After apply              |
 
 > **Important**: You must add a `/health` endpoint to every NestJS service that returns HTTP 200. The ALB and ECS health checks depend on this.

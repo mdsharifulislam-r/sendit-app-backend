@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ReportService } from './report.service';
-import { CreateReportDto } from './report.dto';
+import { CreateReportDto, RefundOnReportDto } from './report.dto';
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { Auth } from 'utils/guards/auth.guard';
 import { FileUpload } from 'utils/decorators/file-uploader.decorator';
@@ -51,6 +51,12 @@ export class ReportController {
     return this.reportService.createChatWithSupport(id);
   }
 
+  @Post('refund')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  refundRequestForAdmin(@Body() data: RefundOnReportDto, @CurrentUser() user: any) {
+    return this.reportService.refundRequestForAdmin(data, user.id);
+  }
+
   @Get(':reportId')
   @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
   async getSingleReport(@Param('reportId') reportId: string) {
@@ -68,6 +74,10 @@ export class ReportController {
   async deleteReport(@Param('reportId') reportId: string) {
     return this.reportService.deleteReport(reportId);
   }
+
+
+
+
 
 
 }

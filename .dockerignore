@@ -22,3 +22,4 @@ scripts
 public
 .terraform
 *.tfstate*
+*.tfvars*

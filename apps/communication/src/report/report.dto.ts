@@ -1,4 +1,4 @@
-import { IsArray, IsMongoId, IsOptional, IsString } from "class-validator";
+import { IsArray, IsMongoId, IsNumber, IsOptional, IsString, MAX, Min } from "class-validator";
 import { Types } from "mongoose";
 
 export class CreateReportDto {
@@ -24,4 +24,18 @@ export class CreateReportDto {
     @IsString()
     @IsMongoId()
     user: string
+}
+
+
+export class RefundOnReportDto {
+    @IsMongoId()
+    report: string
+
+    @IsNumber()
+    @Min(0, { message: 'Refund amount must be greater than 0' })
+    amount: number
+
+    @IsString()
+    @IsOptional()
+    reason: string
 }

@@ -158,6 +158,9 @@ export class Booking {
   @Prop({ type: String, default: null })
   pickup_method: string
 
+  @Prop({ type: String, default: '' })
+  payment_intent_id: string
+
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);

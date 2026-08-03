@@ -54,6 +54,11 @@ output "secrets_arn" {
   sensitive   = true
 }
 
+output "secrets_name" {
+  description = "Secrets Manager secret name (passed to containers as AWS_SECRET_NAME)"
+  value       = module.secrets.secret_name
+}
+
 output "cloudwatch_alarm_topic_arn" {
   description = "SNS topic ARN for CloudWatch alarms"
   value       = module.cloudwatch.alarm_topic_arn

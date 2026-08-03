@@ -133,7 +133,7 @@ module "ecs" {
   alb_tg_arns           = module.alb.service_tg_arns
   execution_role_arn    = module.iam.ecs_execution_role_arn
   task_role_arn         = module.iam.ecs_task_role_arn
-  secrets_arn           = module.secrets.secret_arn
+  secret_name           = module.secrets.secret_name
 
   # Docker images — set via CI/CD, default to latest for initial bootstrap
   dockerhub_username = var.dockerhub_username

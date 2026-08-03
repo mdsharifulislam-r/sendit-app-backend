@@ -44,7 +44,7 @@ export class PaymentService {
           }
 
           if (metadata?.userId && metadata?.trip_id && metadata.session_id) {
-            await this.bookingService.placeBooking(metadata.userId, metadata.session_id, metadata.trip_id, metadata?.coupon)
+            await this.bookingService.placeBooking(metadata.userId, metadata.session_id, metadata.trip_id, metadata?.coupon, session.payment_intent as string)
           }
 
           break;

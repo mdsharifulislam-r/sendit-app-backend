@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Report, ReportDocument } from './report.entity';
-import { CreateReportDto } from './report.dto';
+import { CreateReportDto, RefundOnReportDto } from './report.dto';
 import { SnsService } from 'utils/helper-modules/sns/sns.service';
 import { S3Service } from 'utils/helper-modules/upload/s3.service';
 import sendResponse from 'utils/helper/sendResponse';
@@ -13,6 +13,7 @@ import { CreateAuditLogsDto } from 'apps/admin/src/audit-logs/audit-logs.dto';
 import { Booking, BookingDocument } from 'apps/booking/src/booking.entity';
 import { ApiError } from 'utils/errors/api-error';
 import { Chat, ChatDocument } from '../chat/chat.entity';
+import { StripeService } from 'utils/helper-modules/stripe/stripe.service';
 
 @Injectable()
 export class ReportService {
@@ -22,7 +23,8 @@ export class ReportService {
         @InjectModel(Chat.name) private readonly chatModel: Model<ChatDocument>,
         private readonly snsService: SnsService,
         private readonly s3Service: S3Service,
-        private readonly cacheService: CacheService
+        private readonly cacheService: CacheService,
+        private readonly stripeService: StripeService
     ) { }
 
     async createReport(user: string, report: CreateReportDto) {
@@ -202,34 +204,108 @@ export class ReportService {
         })
     }
 
-    // async refundRequestForAdmin(bookingId: string) {
-    //     const booking = await this.bookingModel.findById(bookingId)
-    //     if (!booking) {
-    //         throw new ApiError(404, 'Booking not found')
-    //     }
-    //     const existingReport = await this.reportModel.findOne({
-    //         booking: booking._id,
-    //         report_type: 'refund_request'
-    //     })
-    //     if (existingReport) {
-    //         throw new ApiError(400, 'Refund request already exists')
-    //     }
-    //     const createdReport = await this.reportModel.create({
-    //         report_type: 'refund_request',
-    //         user: booking.user,
-    //         booking: booking._id,
-    //         trip: booking.trip,
-    //         transporter: booking.transporter,
-    //         receiver: booking.receiver,
-    //         description: 'Refund request',
-    //     })
-    //     return sendResponse({
-    //         message: 'Refund request created successfully',
-    //         success: true,
-    //         statusCode: 200,
-    //         data: createdReport
-    //     })
-    // }
+    async refundRequestForAdmin(payload: RefundOnReportDto, userId: string) {
+        const report = await this.reportModel.findById(payload.report)
+        if (!report) {
+            throw new ApiError(404, 'Report not found')
+        }
+        if (report.is_refunded) {
+            throw new ApiError(400, 'Report is already resolved')
+        }
+
+        const bookingInfo = await this.bookingModel.findById(report.booking)
+        if (!bookingInfo) {
+            throw new ApiError(404, 'Booking not found')
+        }
+
+        if (payload.amount > bookingInfo.price_breakdown?.total) {
+            throw new ApiError(400, 'Refund amount is greater than booking amount')
+        }
+
+        if (bookingInfo.payment_intent_id) {
+            await this.stripeService.getClient().refunds.create({
+                payment_intent: bookingInfo.payment_intent_id,
+                amount: Math.round(payload.amount * 100),
+                reason: "requested_by_customer",
+                metadata: {
+                    refund_request_id: report._id.toString(),
+                    amount: payload.amount,
+                    report_id: report.report_id,
+                }
+            })
+
+            await this.reportModel.findByIdAndUpdate(report._id, {
+                is_refunded: true,
+                refund_reason: payload.reason,
+                refunded_amount: payload.amount,
+            })
+
+            await this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+                action: 'Refund Request',
+                old_value: report.status,
+                new_value: 'resolved',
+                reason: payload.reason,
+                user: userId as any
+            })
+
+            await this.snsService.publish<CreateNotificationDto>('notification.send', {
+                title: 'Refund Request',
+                message: `Your refund request has been processed successfully.`,
+                isRead: false,
+                receiver: [report.user as any],
+                filePath: FilePathType.REPORT,
+                referenceId: report._id.toString(),
+            })
+
+            await this.cacheService.deleteByPattern('report')
+
+            return sendResponse({
+                message: 'Refund request sent successfully',
+                success: true,
+                statusCode: 200,
+            })
+        }
+
+        await this.snsService.publish<{ userId: string, amount: number }>('add.balance', {
+            userId: report.user.toString(),
+            amount: payload.amount,
+        })
+
+        await this.reportModel.findByIdAndUpdate(report._id, {
+            is_refunded: true,
+            refund_reason: payload.reason,
+            refunded_amount: payload.amount,
+        })
+
+        await this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+            action: 'Refund Request',
+            old_value: report.status,
+            new_value: 'resolved',
+            reason: payload.reason,
+            user: userId as any
+        })
+
+        await this.snsService.publish<CreateNotificationDto>('notification.send', {
+            title: 'Refund Request',
+            message: `Your refund request has been processed successfully.`,
+            isRead: false,
+            receiver: [report.user as any],
+            filePath: FilePathType.REPORT,
+            referenceId: report._id.toString(),
+        })
+
+        await this.cacheService.deleteByPattern('report')
+
+        return sendResponse({
+            message: 'Refund request sent successfully',
+            success: true,
+            statusCode: 200,
+        })
+
+
+
+
+    }
 
 
 

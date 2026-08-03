@@ -14,7 +14,7 @@ export class Report {
     @Prop({ required: false, type: [String] })
     attachments: string[]
     @Prop({ required: false, type: String, enum: ['open', 'closed', 'resolved'], default: 'open' })
-    status: "open" | "closed"
+    status: "open" | "closed" | "resolved"
 
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Trip' })
     trip: Types.ObjectId

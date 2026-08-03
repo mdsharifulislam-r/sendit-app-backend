@@ -173,7 +173,7 @@ export class BookingService {
   }
 
 
-  async placeBooking(userId: string, session_id: string, trip_id: string, coupon?: string) {
+  async placeBooking(userId: string, session_id: string, trip_id: string, coupon?: string, payment_intent_id?: string) {
     const mongoSession = await this.connection.startSession();
     mongoSession.startTransaction();
     try {
@@ -256,6 +256,7 @@ export class BookingService {
         },
         transporter: (trip.user as any)._id || (trip.user as any).id,
         timeline: [{ date: new Date(), status: TIMELINE_TYPE.BOOKED }],
+        payment_intent_id: payment_intent_id || ''
       });
 
       const savedBooking = await booking.save({ session: mongoSession });
