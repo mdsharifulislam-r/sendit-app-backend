@@ -11,15 +11,26 @@ faceapi.env.monkeyPatch({ Canvas: Canvas as any, Image: Image as any, ImageData:
 
 const MODEL_PATH = path.join(process.cwd(), 'models');
 
-// Load models
+let modelsLoaded = false;
+let modelsLoading: Promise<void> | null = null;
+
 export const loadModels = async () => {
     await faceapi.nets.ssdMobilenetv1.loadFromDisk(MODEL_PATH);
     await faceapi.nets.faceLandmark68Net.loadFromDisk(MODEL_PATH);
     await faceapi.nets.faceRecognitionNet.loadFromDisk(MODEL_PATH);
-    console.log('✅ Models loaded');
+    console.log('✅ Face-api models loaded');
 };
 
-loadModels();
+async function ensureModelsLoaded() {
+    if (modelsLoaded) return;
+    if (!modelsLoading) {
+        modelsLoading = loadModels().then(() => {
+            modelsLoaded = true;
+        });
+    }
+    await modelsLoading;
+}
+
 // Ensure image is supported by canvas
 const ensureSupportedImage = async (imagePath: string) => {
     const ext = path.extname(imagePath).toLowerCase();
@@ -35,6 +46,7 @@ const ensureSupportedImage = async (imagePath: string) => {
 // Detect face and return descriptor
 export const detectFace = async (imagePath: string) => {
     try {
+        await ensureModelsLoaded();
         const supportedPath = await ensureSupportedImage(imagePath);
         const img = (await loadImage(supportedPath)) as unknown as HTMLImageElement;
 
