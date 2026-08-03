@@ -236,7 +236,7 @@ Terraform handles ordering automatically, but conceptually:
 
 | Role                 | Purpose                               | Permissions                                                                                     |
 | -------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `ecs-execution-role` | ECS agent pulls images, reads secrets | ECR, CloudWatch Logs, Secrets Manager read                                                      |
+| `ecs-execution-role` | ECS agent pulls images, writes logs   | ECR, CloudWatch Logs                                                                            |
 | `ecs-task-role`      | Application code inside containers    | S3 put/get/delete, SNS publish, SQS receive/delete, CloudWatch logs write, Secrets Manager read |
 
 ### Network Security
@@ -257,30 +257,40 @@ Terraform handles ordering automatically, but conceptually:
 
 ## 8. Secrets Management
 
-All secrets are stored in **AWS Secrets Manager** at path `sendit/production/app-secrets`.
+All application secrets live in a **single JSON secret** in AWS Secrets Manager:
 
-ECS task definitions reference individual keys using the `secrets` field:
-
-```json
-{
-  "name": "JWT_SECRET",
-  "valueFrom": "arn:aws:secretsmanager:...:secret:sendit/production/app-secrets:JWT_SECRET::"
-}
 ```
+sendit-{environment}-app-secret    # e.g. sendit-dev-app-secret
+```
+
+At container startup every service calls `loadAwsSecrets()` (see `utils/helper-modules/secret-manager/load-aws-secrets.ts`) **before** `NestFactory.create()`. The helper reads the full JSON blob and merges every key into `process.env`.
+
+ECS task definitions only pass two AWS-related env vars (set by Terraform):
+
+| Env var           | Source                          |
+| ----------------- | ------------------------------- |
+| `AWS_REGION`      | Terraform (`var.aws_region`)    |
+| `AWS_SECRET_NAME` | Terraform (`module.secrets`)    |
+
+The ECS **task role** (not the execution role) needs `secretsmanager:GetSecretValue` — already configured in `modules/iam`.
 
 ### Populating Secrets (first-time setup)
 
+Use the template at `infrastructure/terraform/modules/secrets/secrets.template.json`:
+
 ```bash
+# After terraform apply
+terraform output secrets_name
+
 aws secretsmanager put-secret-value \
-  --secret-id sendit/production/app-secrets \
-  --secret-string '{
-    "JWT_SECRET": "your-256-bit-random-secret",
-    "STRIPE_SECRET_KEY": "sk_live_...",
-    "EMAIL_PASS": "your-app-password",
-    "DB_URI": "mongodb://user:pass@docdb-endpoint:27017/sendit?tls=true...",
-    ...
-  }'
+  --region eu-central-1 \
+  --secret-id sendit-dev-app-secret \
+  --secret-string file://infrastructure/terraform/modules/secrets/secrets.template.json
 ```
+
+### Local development
+
+Omit `AWS_SECRET_NAME` (or leave it unset) and the app falls back to `.env` file values — no AWS call is made.
 
 ---
 
@@ -381,12 +391,16 @@ terraform apply tfplan
 ### Step 3 — Populate Secrets Manager
 
 ```bash
-# After terraform apply, get the secret ARN from outputs
-terraform output secrets_arn
+# After terraform apply, get the secret name from outputs
+terraform output secrets_name
 
-# Populate all secrets
+# Copy the template, fill in real values, then upload
+cp modules/secrets/secrets.template.json secrets.json
+# edit secrets.json with your real JWT, Stripe, email, CORS, etc.
+
 aws secretsmanager put-secret-value \
-  --secret-id sendit/production/app-secrets \
+  --region eu-central-1 \
+  --secret-id "$(terraform output -raw secrets_name)" \
   --secret-string file://secrets.json
 ```
 

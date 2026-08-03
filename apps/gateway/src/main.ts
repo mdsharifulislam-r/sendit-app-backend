@@ -2,19 +2,23 @@ import { NestFactory } from '@nestjs/core';
 
 import { Logger } from '@nestjs/common';
 import 'reflect-metadata';
+import { getCorsOrigin } from 'utils/config/cors';
+import { loadAwsSecrets } from 'utils/helper-modules/secret-manager/load-aws-secrets';
 import { GatewayModule } from './gateway.module';
 import { GatewayService } from './gateway.service';
 
 const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
+  await loadAwsSecrets();
+
   const app = await NestFactory.create(GatewayModule, {
     logger: ['log', 'error', 'warn', 'debug'],
     bodyParser: false, // Disable body parser to allow raw stream proxying
   });
 
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: getCorsOrigin(),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

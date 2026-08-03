@@ -18,6 +18,7 @@ import { TransportAgreementModule } from './transport-agreement/transport-agreem
 import { AddressModule } from './address/address.module';
 import { DeviceModule } from './device/device.module';
 import { ReferralModule } from './referral/referral.module';
+import { SecretManagerModule } from '../../../utils/helper-modules/secret-manager/secret-manager.module';
 
 
 @Module({
@@ -65,7 +66,8 @@ import { ReferralModule } from './referral/referral.module';
     TransportAgreementModule,
     AddressModule,
     DeviceModule,
-    ReferralModule
+    ReferralModule,
+    SecretManagerModule
     // KafkaModule,
   ],
   controllers: [AppController],

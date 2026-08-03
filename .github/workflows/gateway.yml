@@ -17,7 +17,7 @@ on:
 env:
   SERVICE_NAME: gateway
   SERVICE_PORT: 3010
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/sendit-gateway
+  IMAGE_REPO: sendit-gateway
   ECS_CLUSTER: sendit-dev
   ECS_SERVICE: sendit-dev-gateway-service
   ECS_TASK_FAMILY: sendit-dev-gateway
@@ -33,6 +33,16 @@ jobs:
       full_image: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set Docker image name
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ]; then
+            echo "::error::DOCKERHUB_USERNAME secret is not set in repository secrets."
+            exit 1
+          fi
+          echo "IMAGE_NAME=${DOCKERHUB_USERNAME}/${{ env.IMAGE_REPO }}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
