@@ -6,13 +6,17 @@ import { formatValidationErrors } from 'utils/errors/validator-error';
 import { GlobalExceptionFilter } from 'utils/filters/global-exception.filter';
 import 'reflect-metadata';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { getCorsOrigin } from 'utils/config/cors';
 import { CommunicationModule } from './communication.module';
 import { Transport } from '@nestjs/microservices';
+import { loadAwsSecrets } from 'utils/helper-modules/secret-manager/load-aws-secrets';
 
 
 const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
+  await loadAwsSecrets();
+
   const app = await NestFactory.create(CommunicationModule, {
     logger: ['log', 'error', 'warn', 'debug'],
   });
@@ -21,7 +25,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: getCorsOrigin(),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

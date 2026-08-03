@@ -25,11 +25,14 @@ RUN npx nest build ${SERVICE_NAME}
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Security: non-root user
+# ca-certificates + DocumentDB/RDS TLS bundle (required for TLS connections)
+RUN apk add --no-cache ca-certificates wget
+
 RUN addgroup -g 1001 -S nestjs && adduser -S nestjs -u 1001 -G nestjs
 
-# Create uploads directory with correct ownership
-RUN mkdir -p uploads && chown nestjs:nestjs uploads
+RUN mkdir -p uploads /app/certs && \
+    wget -qO /app/certs/rds-global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem && \
+    chown -R nestjs:nestjs uploads /app/certs
 
 # Only copy production node_modules and built dist
 COPY --chown=nestjs:nestjs --from=deps /app/node_modules_prod ./node_modules

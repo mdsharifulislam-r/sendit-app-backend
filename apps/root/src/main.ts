@@ -7,25 +7,30 @@ import { formatValidationErrors } from 'utils/errors/validator-error';
 import { GlobalExceptionFilter } from 'utils/filters/global-exception.filter';
 import 'reflect-metadata';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { getCorsOrigin } from 'utils/config/cors';
 import { UserService } from './user/user.service';
-
+import { loadAwsSecrets } from 'utils/helper-modules/secret-manager/load-aws-secrets';
 
 const logger = new Logger('Bootstrap');
 
+
 async function bootstrap() {
+  // ── Step 1: pull secrets into process.env first ──────────────────────────
+  await loadAwsSecrets();
+
+  // ── Step 2: now create the Nest app (modules read env vars here) ─────────
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'error', 'warn', 'debug'],
   });
   app.setGlobalPrefix('api/v1');
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: getCorsOrigin(),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
 
-  const userService = app.get(UserService)
-
+  const userService = app.get(UserService);
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -59,9 +64,6 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  // await generateSwagger(app);
-
-
   const port = process.env.PORT ?? 3000;
   const host = process.env.IP_ADDRESS || '0.0.0.0';
 
@@ -69,7 +71,7 @@ async function bootstrap() {
     logger.log(`Server running at http://${host}:${port}/api/v1/`);
     logger.log(`Swagger docs at http://${host}:${port}/docs`);
     logger.log(`Environment: ${process.env.NODE_ENV ?? 'development'}`);
-    userService.seedAdmin()
+    userService.seedAdmin();
   });
 }
 

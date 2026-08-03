@@ -1,3 +1,5 @@
+import { getCorsOrigin } from './cors';
+
 /**
  * Typed application configuration helper.
  * All values are read from process.env (loaded by ConfigModule).
@@ -8,7 +10,7 @@ export const config = {
     env: process.env.NODE_ENV || 'development',
     port: Number(process.env.PORT) || 3000,
     ipAddress: process.env.IP_ADDRESS || '0.0.0.0',
-    corsOrigin: process.env.CORS_ORIGIN || '*',
+    corsOrigin: getCorsOrigin(),
   },
 
   db: {
