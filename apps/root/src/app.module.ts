@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { mongooseFactory } from 'utils/config/database';
 import { UserModule } from './user/user.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EmailModule } from '../../../utils/helper-modules/email/email.module';
@@ -46,9 +47,7 @@ import { HealthModule } from 'utils/health/health.module';
     // ─── Database ─────────────────────────────────────────────
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('DB_URI') || 'mongodb://localhost:27017/sendit',
-      }),
+      useFactory: mongooseFactory,
     }),
 
     // ─── Static Files ─────────────────────────────────────────

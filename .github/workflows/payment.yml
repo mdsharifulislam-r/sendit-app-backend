@@ -95,6 +95,8 @@ jobs:
           task-definition: task-definition.json
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ needs.build-push.outputs.full_image }}
+      - name: Patch task definition for DocumentDB
+        run: node scripts/patch-ecs-task-definition.mjs ${{ steps.task-def.outputs.task-definition }}
       - id: register-task
         run: |
           NEW_ARN=$(aws ecs register-task-definition \
