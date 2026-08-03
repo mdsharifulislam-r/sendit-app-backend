@@ -38,8 +38,9 @@ RUN mkdir -p uploads /app/certs && \
     wget -qO /app/certs/rds-global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem && \
     chown -R nestjs:nestjs uploads /app/certs
 
-# Only copy production node_modules and built dist
+# Only copy production node_modules, face-api models, and built dist
 COPY --chown=nestjs:nestjs --from=deps /app/node_modules_prod ./node_modules
+COPY --chown=nestjs:nestjs --from=builder /app/models ./models
 COPY --chown=nestjs:nestjs --from=builder /app/dist ./dist
 
 USER nestjs
