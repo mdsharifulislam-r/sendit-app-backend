@@ -108,10 +108,20 @@ jobs:
             --service ${{ env.ECS_SERVICE }} \
             --task-definition ${{ steps.register-task.outputs.task_arn }} \
             --force-new-deployment
-      - run: |
+      - name: Wait for stabilization
+        timeout-minutes: 10
+        run: |
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
             --services ${{ env.ECS_SERVICE }}
+      - name: Print ECS events on failure
+        if: failure()
+        run: |
+          aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }} \
+            --query 'services[0].events[:10]' \
+            --output table
       - name: Rollback on failure
         if: failure()
         run: |

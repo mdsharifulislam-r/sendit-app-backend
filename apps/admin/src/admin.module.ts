@@ -16,9 +16,11 @@ import { Report, ReportSchema } from 'apps/communication/src/report/report.entit
 import { Ticket, TicketSchema } from './ticket/ticket.entity';
 import { RiskyItems, RiskyItemsSchema } from './risk-settings/risk-settings.entity';
 import { Review, ReviewSchema } from 'apps/trip/src/review/review.entity';
+import { HealthModule } from 'utils/health/health.module';
 
 @Module({
   imports: [
+    HealthModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',

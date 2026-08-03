@@ -14,9 +14,11 @@ import { CouponModule } from './coupon/coupon.module';
 import { PricingRulesModule } from './pricing-rules/pricing-rules.module';
 import { BookingService } from 'apps/booking/src/booking.service';
 import { BookingModule } from 'apps/booking/src/booking.module';
+import { HealthModule } from 'utils/health/health.module';
 
 @Module({
   imports: [
+    HealthModule,
 
     ConfigModule.forRoot({
       isGlobal: true,
