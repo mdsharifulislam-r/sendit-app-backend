@@ -2,8 +2,11 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install OS-level build tools needed for native modules (bcrypt)
-RUN apk add --no-cache python3 make g++
+# Install OS-level build tools + canvas native dependencies (face-api.js)
+RUN apk add --no-cache \
+  python3 make g++ pkgconfig \
+  cairo-dev jpeg-dev pango-dev giflib-dev pixman-dev \
+  musl-dev freetype-dev
 
 COPY package.json package-lock.json ./
 RUN npm ci --only=production --legacy-peer-deps && cp -R node_modules node_modules_prod && \
@@ -25,8 +28,9 @@ RUN npx nest build ${SERVICE_NAME}
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# ca-certificates + DocumentDB/RDS TLS bundle (required for TLS connections)
-RUN apk add --no-cache ca-certificates wget
+# ca-certificates + DocumentDB/RDS TLS bundle + canvas runtime libs
+RUN apk add --no-cache ca-certificates wget \
+  cairo pango jpeg giflib pixman freetype
 
 RUN addgroup -g 1001 -S nestjs && adduser -S nestjs -u 1001 -G nestjs
 
