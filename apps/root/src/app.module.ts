@@ -19,10 +19,12 @@ import { AddressModule } from './address/address.module';
 import { DeviceModule } from './device/device.module';
 import { ReferralModule } from './referral/referral.module';
 import { SecretManagerModule } from '../../../utils/helper-modules/secret-manager/secret-manager.module';
+import { HealthModule } from 'utils/health/health.module';
 
 
 @Module({
   imports: [
+    HealthModule,
     // ─── Config ──────────────────────────────────────────────
     ConfigModule.forRoot({
       isGlobal: true,

@@ -17,9 +17,11 @@ import { SocketModule } from 'utils/helper-modules/socket/socket.module';
 import { BookingSocketHandler } from './booking.socket.handler';
 import { CouponModule } from 'apps/payment/src/coupon/coupon.module';
 import { PricingRulesModule } from 'apps/payment/src/pricing-rules/pricing-rules.module';
+import { HealthModule } from 'utils/health/health.module';
 
 @Module({
   imports: [
+    HealthModule,
     // ─── Config ──────────────────────────────────────────────
     ConfigModule.forRoot({
       isGlobal: true,

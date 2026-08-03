@@ -16,9 +16,11 @@ import { ChatModule } from './chat/chat.module';
 import { AuthModule } from 'apps/root/src/auth/auth.module';
 import { MessageModule } from './message/message.module';
 import { ReportModule } from './report/report.module';
+import { HealthModule } from 'utils/health/health.module';
 
 @Module({
   imports: [
+    HealthModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',

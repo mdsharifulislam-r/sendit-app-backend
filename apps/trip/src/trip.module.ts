@@ -15,9 +15,11 @@ import { TransportAgreementModule } from 'apps/root/src/transport-agreement/tran
 import { TransportAgreement, TransportAgreementSchema } from 'apps/root/src/transport-agreement/transport-agreement.entity';
 import { ReviewModule } from './review/review.module';
 import { RiskSettings, RiskSettingsSchema } from 'apps/admin/src/risk-settings/risk-settings.entity';
+import { HealthModule } from 'utils/health/health.module';
 
 @Module({
   imports: [
+    HealthModule,
     // ─── Config ──────────────────────────────────────────────
     ConfigModule.forRoot({
       isGlobal: true,

@@ -8,6 +8,7 @@ import { GlobalExceptionFilter } from 'utils/filters/global-exception.filter';
 import 'reflect-metadata';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { getCorsOrigin } from 'utils/config/cors';
+import { configureGlobalPrefix } from 'utils/config/app-prefix';
 import { UserService } from './user/user.service';
 import { loadAwsSecrets } from 'utils/helper-modules/secret-manager/load-aws-secrets';
 
@@ -22,7 +23,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'error', 'warn', 'debug'],
   });
-  app.setGlobalPrefix('api/v1');
+  configureGlobalPrefix(app);
   app.enableCors({
     origin: getCorsOrigin(),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
