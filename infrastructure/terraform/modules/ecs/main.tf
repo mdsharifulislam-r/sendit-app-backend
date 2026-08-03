@@ -13,7 +13,7 @@ variable "alb_listener_http_arn" {}
 variable "alb_tg_arns"          { type = map(string) }
 variable "execution_role_arn"   {}
 variable "task_role_arn"        {}
-variable "secrets_arn"          {}
+variable "secret_name"          {}
 variable "dockerhub_username"   {}
 variable "service_images"       { type = map(string) }
 variable "documentdb_endpoint"  {}
@@ -107,10 +107,13 @@ locals {
     admin         = var.alb_tg_arns["admin"]
   }
 
-  # Common env var block injected into every container
+  # Non-secret env vars injected into every container.
+  # App secrets (JWT, Stripe, email, etc.) are loaded at runtime via
+  # loadAwsSecrets() using AWS_SECRET_NAME + the ECS task role.
   common_env = [
     { name = "NODE_ENV",           value = "production" },
     { name = "AWS_REGION",         value = var.aws_region },
+    { name = "AWS_SECRET_NAME",    value = var.secret_name },
     { name = "AWS_BUCKET_NAME",    value = var.s3_bucket_name },
     { name = "SNS_TOPIC_ARN",      value = var.sns_topic_arn },
     { name = "SQS_QUEUE_URL",      value = var.sqs_queue_url },
@@ -160,23 +163,6 @@ resource "aws_ecs_task_definition" "services" {
       ]
 
       environment = local.common_env
-
-      # Inject secrets from Secrets Manager
-      secrets = [
-        { name = "JWT_SECRET",           valueFrom = "${var.secrets_arn}:JWT_SECRET::" },
-        { name = "JWT_EXPIRE_IN",        valueFrom = "${var.secrets_arn}:JWT_EXPIRE_IN::" },
-        { name = "STRIPE_SECRET_KEY",    valueFrom = "${var.secrets_arn}:STRIPE_SECRET_KEY::" },
-        { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${var.secrets_arn}:STRIPE_WEBHOOK_SECRET::" },
-        { name = "EMAIL_HOST",           valueFrom = "${var.secrets_arn}:EMAIL_HOST::" },
-        { name = "EMAIL_PORT",           valueFrom = "${var.secrets_arn}:EMAIL_PORT::" },
-        { name = "EMAIL_USER",           valueFrom = "${var.secrets_arn}:EMAIL_USER::" },
-        { name = "EMAIL_PASS",           valueFrom = "${var.secrets_arn}:EMAIL_PASS::" },
-        { name = "EMAIL_FROM",           valueFrom = "${var.secrets_arn}:EMAIL_FROM::" },
-        { name = "SUPER_ADMIN_EMAIL",    valueFrom = "${var.secrets_arn}:SUPER_ADMIN_EMAIL::" },
-        { name = "SUPER_ADMIN_PASSWORD", valueFrom = "${var.secrets_arn}:SUPER_ADMIN_PASSWORD::" },
-        { name = "OPENAI_API_KEY",       valueFrom = "${var.secrets_arn}:OPENAI_API_KEY::" },
-        { name = "CORS_ORIGIN",          valueFrom = "${var.secrets_arn}:CORS_ORIGIN::" },
-      ]
 
       logConfiguration = {
         logDriver = "awslogs"

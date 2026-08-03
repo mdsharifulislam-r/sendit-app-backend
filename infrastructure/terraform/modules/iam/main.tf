@@ -33,23 +33,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_base" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Allow execution role to read secrets from Secrets Manager
-resource "aws_iam_role_policy" "execution_secrets" {
-  name = "sendit-${var.environment}-execution-secrets"
-  role = aws_iam_role.ecs_execution.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue"]
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.account_id}:secret:sendit-${var.environment}-*"
-      }
-    ]
-  })
-}
-
 # ─── ECS Task Role ────────────────────────────────────────────────────────────
 # Permissions available to the application code inside running containers
 resource "aws_iam_role" "ecs_task" {
