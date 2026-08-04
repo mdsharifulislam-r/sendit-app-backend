@@ -66,7 +66,6 @@ export class S3Service {
             filePath,
         );
 
-        //sds
         const ext = path.extname(filePath);
 
         const baseName = path.basename(filePath)?.split('.')[0];
