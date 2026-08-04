@@ -5,17 +5,12 @@ import {
     DeleteMessageCommand,
     ChangeMessageVisibilityCommand,
 } from '@aws-sdk/client-sqs';
+import { awsClientConfig } from 'utils/config/aws-client';
 import { SqsConsumerRegistry } from './sqs-consumer.registry';
 
 @Injectable()
 export class SqsConsumerService implements OnApplicationBootstrap {
-    private sqs = new SQSClient({
-        region: process.env.AWS_REGION,
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
-    });
+    private sqs = new SQSClient(awsClientConfig());
 
     private queueUrl: string = '';
 
@@ -32,34 +27,26 @@ export class SqsConsumerService implements OnApplicationBootstrap {
     }
 
     private getQueueUrl(): string {
-        const argvStr = process.argv.join(' ').toLowerCase();
-        let serviceSuffix = '';
-        if (argvStr.includes('booking')) serviceSuffix = 'BOOKING';
-        else if (argvStr.includes('communication')) serviceSuffix = 'COMMUNICATION';
-        else if (argvStr.includes('payment')) serviceSuffix = 'PAYMENT';
-        else if (argvStr.includes('trip')) serviceSuffix = 'TRIP';
-        else if (argvStr.includes('root')) serviceSuffix = 'ROOT';
+        const serviceName = (process.env.SERVICE_NAME || 'root').toUpperCase();
+        const serviceQueueUrl = process.env[`${serviceName}_SQS_QUEUE_URL`];
 
-        if (!serviceSuffix) {
-            if (process.env.PAYMENT_PORT) serviceSuffix = 'PAYMENT';
-            else if (process.env.COMMUNICATION_PORT) serviceSuffix = 'COMMUNICATION';
-            else if (process.env.BOOKING_PORT) serviceSuffix = 'BOOKING';
-            else if (process.env.TRIP_SERVER_PORT) serviceSuffix = 'TRIP';
+        if (serviceQueueUrl) {
+            console.log(
+                `[SqsConsumerService] Using service-specific queue URL for ${serviceName}: ${serviceQueueUrl}`,
+            );
+            return serviceQueueUrl;
         }
 
-        if (serviceSuffix) {
-            const serviceQueueUrl = process.env[`${serviceSuffix}_SQS_QUEUE_URL`];
-            if (serviceQueueUrl) {
-                console.log(`[SqsConsumerService] Using service-specific queue URL for ${serviceSuffix}: ${serviceQueueUrl}`);
-                return serviceQueueUrl;
-            }
+        if (process.env.SQS_QUEUE_URL) {
+            console.log(
+                `[SqsConsumerService] Using default queue URL: ${process.env.SQS_QUEUE_URL}`,
+            );
+            return process.env.SQS_QUEUE_URL;
         }
 
-        console.log(
-            `[SqsConsumerService] Using default queue URL: ${process.env.SQS_QUEUE_URL!}`
+        throw new Error(
+            `[SqsConsumerService] No SQS queue URL configured for service "${serviceName}"`,
         );
-
-        return process.env.SQS_QUEUE_URL!;
     }
 
     async poll() {
