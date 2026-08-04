@@ -10,16 +10,13 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as mime from 'mime-types';
 import { unlinkSync } from 'fs';
+import { awsClientConfig } from 'utils/config/aws-client';
 
 @Injectable()
 export class S3Service {
     private s3 = new S3Client({
-        region: process.env.AWS_REGION,
-        endpoint: `https://s3.${process.env.AWS_REGION}.amazonaws.com`,
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
+        ...awsClientConfig(),
+        endpoint: `https://s3.${process.env.AWS_REGION || 'eu-central-1'}.amazonaws.com`,
     });
 
     async uploadFile(filePath: string) {

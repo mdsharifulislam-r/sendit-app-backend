@@ -13,7 +13,7 @@ resource "aws_sns_topic" "main" {
 
 # ─── SQS Queues per service ───────────────────────────────────────────────────
 locals {
-  services = ["communication", "booking", "payment", "trip", "admin"]
+  services = ["root", "communication", "booking", "payment", "trip", "admin"]
 }
 
 # Dead Letter Queues
@@ -81,7 +81,7 @@ output "sns_topic_arn" {
 
 output "main_sqs_queue_url" {
   description = "Default SQS queue URL (shared fallback)"
-  value       = aws_sqs_queue.main["communication"].url
+  value       = aws_sqs_queue.main["root"].url
 }
 
 output "sqs_queue_urls" {

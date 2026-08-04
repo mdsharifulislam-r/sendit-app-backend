@@ -22,7 +22,7 @@ variable "db_master_password"   { sensitive = true }
 variable "redis_endpoint"       {}
 variable "redis_port"           {}
 variable "sns_topic_arn"        {}
-variable "sqs_queue_url"        {}
+variable "sqs_queue_urls"      { type = map(string) }
 variable "enable_autoscaling" {
   description = "Enable ECS auto scaling (requires application-autoscaling permissions)"
   type        = bool
@@ -116,7 +116,6 @@ locals {
     { name = "AWS_SECRET_NAME",    value = var.secret_name },
     { name = "AWS_BUCKET_NAME",    value = var.s3_bucket_name },
     { name = "SNS_TOPIC_ARN",      value = var.sns_topic_arn },
-    { name = "SQS_QUEUE_URL",      value = var.sqs_queue_url },
     { name = "REDIS_HOST",         value = var.redis_endpoint },
     { name = "REDIS_PORT",         value = tostring(var.redis_port) },
     { name = "REDIS_TLS",          value = "true" },
@@ -163,7 +162,13 @@ resource "aws_ecs_task_definition" "services" {
         }
       ]
 
-      environment = local.common_env
+      environment = concat(
+        local.common_env,
+        [
+          { name = "SQS_QUEUE_URL", value = var.sqs_queue_urls[each.key] },
+          { name = "${upper(each.key)}_SQS_QUEUE_URL", value = var.sqs_queue_urls[each.key] },
+        ],
+      )
 
       logConfiguration = {
         logDriver = "awslogs"

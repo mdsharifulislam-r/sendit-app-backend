@@ -1,15 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+import { awsClientConfig } from 'utils/config/aws-client';
 
 @Injectable()
 export class SnsService {
-    private sns = new SNSClient({
-        region: process.env.AWS_REGION,
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
-    });
+    private sns = new SNSClient(awsClientConfig());
 
     async publish<T>(eventType: string, data: T) {
         const command = new PublishCommand({

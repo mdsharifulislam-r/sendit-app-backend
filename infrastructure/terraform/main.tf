@@ -149,8 +149,8 @@ module "ecs" {
   redis_port     = module.redis.port
 
   # Messaging
-  sns_topic_arn = module.messaging.sns_topic_arn
-  sqs_queue_url = module.messaging.main_sqs_queue_url
+  sns_topic_arn  = module.messaging.sns_topic_arn
+  sqs_queue_urls = module.messaging.sqs_queue_urls
 
   # S3
   s3_bucket_name = var.s3_bucket_name
