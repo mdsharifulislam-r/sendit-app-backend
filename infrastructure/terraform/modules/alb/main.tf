@@ -21,13 +21,51 @@ locals {
     admin         = { port = 3005 }
   }
 
-  # Path-based routing rules (priority order matters; lower = evaluated first)
+  # Path rules mirror apps/gateway gateway.service.ts:
+  # route by first segment after /api/v1 (trip, booking, notification, …).
+  # Default listener action → root (auth, user, address, …).
   routing_rules = [
-    { service = "trip",          paths = ["/trip", "/trip/*"],                           priority = 10 },
-    { service = "booking",       paths = ["/booking", "/booking/*"],                     priority = 20 },
-    { service = "communication", paths = ["/communication", "/communication/*"],         priority = 30 },
-    { service = "payment",       paths = ["/payment", "/payment/*"],                     priority = 40 },
-    { service = "admin",         paths = ["/admin", "/admin/*"],                         priority = 50 },
+    {
+      service  = "trip"
+      priority = 10
+      paths    = ["/api/v1/trip*", "/api/v1/review*"]
+    },
+    {
+      service  = "booking"
+      priority = 20
+      paths    = ["/api/v1/booking*"]
+    },
+    {
+      service  = "communication"
+      priority = 30
+      paths    = [
+        "/api/v1/notification*",
+        "/api/v1/message*",
+        "/api/v1/chat*",
+        "/api/v1/disclaimer*",
+        "/api/v1/report*",
+      ]
+    },
+    {
+      service  = "payment"
+      priority = 40
+      paths    = [
+        "/api/v1/wallet*",
+        "/api/v1/coupon*",
+        "/api/v1/transaction*",
+        "/api/v1/pricing-rules*",
+      ]
+    },
+    {
+      service  = "admin"
+      priority = 50
+      paths    = [
+        "/api/v1/admin*",
+        "/api/v1/ticket*",
+        "/api/v1/risk-settings*",
+        "/api/v1/audit-logs*",
+      ]
+    },
   ]
 }
 
