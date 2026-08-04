@@ -54,6 +54,7 @@ locals {
         "/api/v1/coupon*",
         "/api/v1/transaction*",
         "/api/v1/pricing-rules*",
+        "/api/v1/webhook*",
       ]
     },
     {
