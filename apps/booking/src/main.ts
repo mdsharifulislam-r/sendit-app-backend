@@ -7,7 +7,7 @@ import { GlobalExceptionFilter } from 'utils/filters/global-exception.filter';
 import 'reflect-metadata';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { getCorsOrigin } from 'utils/config/cors';
-import { configureGlobalPrefix } from 'utils/config/app-prefix';
+import { configureAlbPathPrefix, configureGlobalPrefix } from 'utils/config/app-prefix';
 import { BookingModule } from './booking.module';
 import { loadAwsSecrets } from 'utils/helper-modules/secret-manager/load-aws-secrets';
 
@@ -22,6 +22,7 @@ async function bootstrap() {
     logger: ['log', 'error', 'warn', 'debug'],
   });
 
+  configureAlbPathPrefix(app);
   configureGlobalPrefix(app);
 
   app.enableCors({

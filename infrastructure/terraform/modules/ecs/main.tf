@@ -167,6 +167,7 @@ resource "aws_ecs_task_definition" "services" {
         [
           { name = "SQS_QUEUE_URL", value = var.sqs_queue_urls[each.key] },
           { name = "${upper(each.key)}_SQS_QUEUE_URL", value = var.sqs_queue_urls[each.key] },
+          { name = "SERVICE_PATH_PREFIX", value = each.key == "root" ? "" : "/${each.key}" },
         ],
       )
 
