@@ -73,7 +73,7 @@ export class UserService {
       otp,
     });
 
-    this.snsService.publish("email.send", template);
+    await this.snsService.publish('email.send', template);
 
     await this.userModel.findByIdAndUpdate(savedUser._id, {
       authentication: {

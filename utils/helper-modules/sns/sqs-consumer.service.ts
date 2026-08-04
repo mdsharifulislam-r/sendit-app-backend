@@ -88,28 +88,31 @@ export class SqsConsumerService implements OnApplicationBootstrap {
                                 }),
                             );
                         } else {
-                            // Determine if using a shared or dedicated queue
-                            const isSharedQueue = !process.env.SQS_QUEUE_URL || this.queueUrl === process.env.SQS_QUEUE_URL;
+                            const serviceName = (process.env.SERVICE_NAME || 'root').toUpperCase();
+                            const isDedicatedQueue = Boolean(
+                                process.env[`${serviceName}_SQS_QUEUE_URL`],
+                            );
 
-                            if (isSharedQueue) {
-                                // Shared queue workaround: release message back with non-zero VisibilityTimeout (e.g., 15s)
-                                // to allow other services to poll it, avoiding rapid DLQ retry loops.
-                                console.warn(`[SqsConsumerService] Warning: Received event "${payload.eventType}" with no local handler. Using shared queue. Releasing back with 15s delay. Please configure dedicated queues for production/performance.`);
+                            if (isDedicatedQueue) {
+                                // Fan-out: other services have their own queue copies.
+                                console.log(
+                                    `[SqsConsumerService] No handler for "${payload.eventType}" on ${serviceName} queue — deleting copy.`,
+                                );
                                 await this.sqs.send(
-                                    new ChangeMessageVisibilityCommand({
+                                    new DeleteMessageCommand({
                                         QueueUrl: this.queueUrl,
                                         ReceiptHandle: msg.ReceiptHandle!,
-                                        VisibilityTimeout: 2,
                                     }),
                                 );
                             } else {
-                                // Dedicated queue: safely delete unhandled messages because no other service is polling this queue.
-                                console.log(`[SqsConsumerService] Received event "${payload.eventType}" with no handler on dedicated queue. Safely deleting message.`);
+                                console.warn(
+                                    `[SqsConsumerService] No handler for "${payload.eventType}" on shared queue — releasing for other services.`,
+                                );
                                 await this.sqs.send(
                                     new ChangeMessageVisibilityCommand({
                                         QueueUrl: this.queueUrl,
                                         ReceiptHandle: msg.ReceiptHandle!,
-                                        VisibilityTimeout: 2,
+                                        VisibilityTimeout: 15,
                                     }),
                                 );
                             }
