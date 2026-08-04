@@ -3,6 +3,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { redisStore } from 'cache-manager-redis-yet';
 import { createClient } from 'redis';
+import { redisSocketOptions } from 'utils/config/redis';
 import { CacheService } from './cache.service';
 
 @Global()
@@ -13,10 +14,7 @@ import { CacheService } from './cache.service';
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => ({
         store: await redisStore({
-          socket: {
-            host: config.get<string>('REDIS_HOST') || 'localhost',
-            port: Number(config.get<number>('REDIS_PORT') || 6379),
-          },
+          socket: redisSocketOptions(config),
         }),
       }),
     }),
@@ -27,10 +25,7 @@ import { CacheService } from './cache.service';
       provide: 'REDIS_CLIENT',
       useFactory: async (config: ConfigService) => {
         const client = createClient({
-          socket: {
-            host: config.get<string>('REDIS_HOST') || 'localhost',
-            port: Number(config.get<number>('REDIS_PORT') || 6379),
-          },
+          socket: redisSocketOptions(config),
         });
 
         await client.connect();
@@ -45,4 +40,4 @@ import { CacheService } from './cache.service';
 
   exports: [CacheService, 'REDIS_CLIENT'],
 })
-export class RedisCacheModule { }
+export class RedisCacheModule {}

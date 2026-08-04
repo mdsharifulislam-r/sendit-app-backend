@@ -1,0 +1,6 @@
+{
+    "events": [
+        {
+            "logStreamName": "ecs/communication/40381beb709c4b93a183ea5b374167be",
+            "timestamp": 1785815807023,
+            "message": 
