@@ -15,7 +15,14 @@ export class SnsService {
             }),
         });
 
-        return await this.sns.send(command);
+        try {
+            const result = await this.sns.send(command);
+            console.log(`[SnsService] Published "${eventType}" → ${process.env.SNS_TOPIC_ARN}`);
+            return result;
+        } catch (err) {
+            console.error(`[SnsService] Failed to publish "${eventType}":`, err);
+            throw err;
+        }
     }
 
     async sendOtpInPhoneNumber(phoneNumber: string, otp: string) {
