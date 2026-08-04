@@ -24,12 +24,20 @@ for (const container of taskDef.containerDefinitions ?? []) {
       env.value = `${env.value}${separator}authMechanism=SCRAM-SHA-1`;
       patched = true;
     }
+
+    if (env.value.includes('readPreference=secondaryPreferred')) {
+      env.value = env.value.replace(
+        'readPreference=secondaryPreferred',
+        'readPreference=primary',
+      );
+      patched = true;
+    }
   }
 }
 
 writeFileSync(file, JSON.stringify(taskDef, null, 2) + '\n', 'utf8');
 console.log(
   patched
-    ? 'Patched DB_URI with authMechanism=SCRAM-SHA-1'
-    : 'DB_URI already includes authMechanism',
+    ? 'Patched DB_URI (DocumentDB: SCRAM-SHA-1 / readPreference=primary)'
+    : 'DB_URI already DocumentDB-compatible',
 );

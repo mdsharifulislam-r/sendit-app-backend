@@ -19,5 +19,13 @@ export function mongooseFactory(config: ConfigService) {
     options.authMechanism = 'SCRAM-SHA-1';
   }
 
+  // DocumentDB transactions require primary read preference
+  if (isDocumentDb && uri.includes('readPreference=secondaryPreferred')) {
+    options.uri = uri.replace(
+      'readPreference=secondaryPreferred',
+      'readPreference=primary',
+    );
+  }
+
   return options;
 }

@@ -15,14 +15,33 @@ resource "aws_s3_bucket" "uploads" {
   tags = { Name = "${var.bucket_name}", Purpose = "file-uploads" }
 }
 
-# ─── Block all public access ──────────────────────────────────────────────────
+# ─── Block all public access (dev allows read-only policy on uploads/*) ───────
 resource "aws_s3_bucket_public_access_block" "uploads" {
   bucket = aws_s3_bucket.uploads.id
 
   block_public_acls       = true
-  block_public_policy     = true
+  block_public_policy     = var.environment != "dev"
   ignore_public_acls      = true
-  restrict_public_buckets = true
+  restrict_public_buckets = var.environment != "dev"
+}
+
+# Dev: allow browsers to open stored upload URLs (bucket is still private for writes)
+resource "aws_s3_bucket_policy" "public_read_uploads" {
+  count  = var.environment == "dev" ? 1 : 0
+  bucket = aws_s3_bucket.uploads.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "PublicReadUploads"
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "s3:GetObject"
+      Resource  = "${aws_s3_bucket.uploads.arn}/uploads/*"
+    }]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.uploads]
 }
 
 # ─── Encryption at rest ───────────────────────────────────────────────────────

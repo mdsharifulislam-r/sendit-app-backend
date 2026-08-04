@@ -119,7 +119,7 @@ locals {
     { name = "REDIS_HOST",         value = var.redis_endpoint },
     { name = "REDIS_PORT",         value = tostring(var.redis_port) },
     { name = "REDIS_TLS",          value = "true" },
-    { name = "DB_URI",             value = "mongodb://${var.db_master_username}:${urlencode(var.db_master_password)}@${var.documentdb_endpoint}:27017/sendit?tls=true&tlsCAFile=/app/certs/rds-global-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false&authMechanism=SCRAM-SHA-1" },
+    { name = "DB_URI",             value = "mongodb://${var.db_master_username}:${urlencode(var.db_master_password)}@${var.documentdb_endpoint}:27017/sendit?tls=true&tlsCAFile=/app/certs/rds-global-bundle.pem&replicaSet=rs0&readPreference=primary&retryWrites=false&authMechanism=SCRAM-SHA-1" },
     { name = "PORT",               value = "3000" },
     { name = "TRIP_SERVER_PORT",   value = "3001" },
     { name = "COMMUNICATION_PORT", value = "3002" },
