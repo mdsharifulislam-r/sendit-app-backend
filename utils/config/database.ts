@@ -8,8 +8,16 @@ export function mongooseFactory(config: ConfigService) {
   const uri =
     config.get<string>('DB_URI') || 'mongodb://localhost:27017/sendit';
 
-  return {
-    uri,
-    authMechanism: 'SCRAM-SHA-1' as const,
-  };
+  const options: { uri: string; authMechanism?: 'SCRAM-SHA-1' } = { uri };
+
+  const hasCredentials = /mongodb(\+srv)?:\/\/[^/@\s]+@/.test(uri);
+  const isDocumentDb =
+    uri.includes('docdb.amazonaws.com') ||
+    (hasCredentials && uri.includes('tls=true'));
+
+  if (isDocumentDb && !uri.includes('authMechanism=')) {
+    options.authMechanism = 'SCRAM-SHA-1';
+  }
+
+  return options;
 }
