@@ -2,8 +2,8 @@ import { INestApplication, RequestMethod } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 
 /**
- * ALB forwards /trip/* with the /trip prefix intact.
- * Strip it so Nest routes match (/api/v1/trip, /health, /docs).
+ * Optional ALB path-prefix strip (legacy /trip/* routing).
+ * Not needed when ALB uses gateway-style /api/v1/{prefix} rules.
  * Local dev: leave SERVICE_PATH_PREFIX unset.
  */
 export function configureAlbPathPrefix(app: INestApplication) {
