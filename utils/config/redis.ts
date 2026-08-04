@@ -9,10 +9,9 @@ export function redisSocketOptions(config: ConfigService) {
     config.get<string>('REDIS_TLS') === 'true' ||
     (!isLocal && host.includes('amazonaws.com'));
 
-  return {
-    host,
-    port,
-    connectTimeout: 10_000,
-    ...(useTls ? { tls: true } : {}),
-  };
+  if (useTls) {
+    return { host, port, connectTimeout: 10_000, tls: true as const };
+  }
+
+  return { host, port, connectTimeout: 10_000 };
 }
