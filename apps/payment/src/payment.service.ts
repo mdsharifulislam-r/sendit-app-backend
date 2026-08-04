@@ -60,7 +60,7 @@ export class PaymentService {
 
       // 4. Respond to Stripe to acknowledge receipt (200 OK)
       res.status(200).send();
-    } catch (err) {
+    } catch (err: any) {
       // 5. Log the error and return 400
       console.error('Webhook error:', err.message);
       res.status(400).send(`Webhook Error: ${err.message}`);
