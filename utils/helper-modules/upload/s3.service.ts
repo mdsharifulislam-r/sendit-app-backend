@@ -37,22 +37,21 @@ export class S3Service {
         const mimeType =
             mime.lookup(localPath) || 'application/octet-stream';
 
-        this.s3.send(
+        await this.s3.send(
             new PutObjectCommand({
                 Bucket: process.env.AWS_BUCKET_NAME,
                 Key: fileKey,
                 Body: fileBuffer,
                 ContentType: mimeType,
             }),
-        ).then(() => {
+        );
 
-            try {
-                unlinkSync(localPath)
-                console.log('File uploaded successfully');
-            } catch (error) {
-
-            }
-        });
+        try {
+            unlinkSync(localPath);
+            console.log('File uploaded successfully');
+        } catch {
+            // local file may already be removed
+        }
 
         return {
             key: fileKey,
@@ -67,6 +66,7 @@ export class S3Service {
             filePath,
         );
 
+        //sds
         const ext = path.extname(filePath);
 
         const baseName = path.basename(filePath)?.split('.')[0];
@@ -85,15 +85,14 @@ export class S3Service {
                 Body: fileBuffer,
                 ContentType: mimeType,
             }),
-        ).then(() => {
+        );
 
-            try {
-                unlinkSync(localPath)
-                console.log('File uploaded successfully');
-            } catch (error) {
-
-            }
-        });
+        try {
+            unlinkSync(localPath);
+            console.log('File uploaded successfully');
+        } catch {
+            // local file may already be removed
+        }
 
         return {
             key: fileKey,
