@@ -512,255 +512,157 @@ export class AdminService {
 
     const nonAdminFilter = { role: { $nin: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] } };
 
+    const bookingGroupStage = {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        delivered: { $sum: { $cond: [{ $eq: ['$status', BOOKING_STATUS.DELIVERED] }, 1, 0] } },
+        confirmed: { $sum: { $cond: [{ $eq: ['$status', BOOKING_STATUS.CONFIRMED] }, 1, 0] } },
+        with_trip: { $sum: { $cond: [{ $ne: ['$trip', null] }, 1, 0] } },
+      },
+    };
+
+    const kycGroupStage = {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        approved: { $sum: { $cond: ['$isKycVerified', 1, 0] } },
+        submitted: {
+          $sum: {
+            $cond: [
+              {
+                $or: [
+                  { $and: [{ $ne: ['$passport_info.file', ''] }, { $ne: ['$passport_info.file', null] }] },
+                  { $and: [{ $ne: ['$id_card_info.front', ''] }, { $ne: ['$id_card_info.front', null] }] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+    };
+
+    const payoutAvgGroup = {
+      $group: {
+        _id: null,
+        avg_days: {
+          $avg: {
+            $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000 * 60 * 60 * 24],
+          },
+        },
+      },
+    };
+
+    const payoutMatch = {
+      type: TRANSACTION_TYPE.WITHDRAW,
+      status: TRANSACTION_STATUS.COMPLETED,
+    };
+
     const [
-      bookingStats,
-      tripStats,
-      ticketStats,
-      reportStats,
-      kycStats,
-      payoutStats,
-      reviewStats,
+      bookingCurrent,
+      bookingPrevious,
+      bookingAllTime,
+      tripCurrent,
+      tripPrevious,
+      tripAllTime,
+      ticketCurrent,
+      ticketPrevious,
+      ticketAllTime,
+      reportAllTime,
+      kycCurrent,
+      kycPrevious,
+      kycAllTime,
+      payoutCurrent,
+      payoutPrevious,
+      payoutAllTime,
+      reviewCurrent,
+      reviewPrevious,
+      reviewAllTime,
       topRoutes,
       disputeTrends,
-      financialStats,
-      supportStats,
+      financialRevenue,
+      financialCommission,
+      financialPayouts,
+      financialBookingRevenue,
+      supportTotalsAgg,
+      supportResponseAgg,
     ] = await Promise.all([
-      // Booking counts for conversion & booking rate
       this.bookingModel.aggregate([
-        {
-          $facet: {
-            current: [
-              { $match: { created_at: { $gte: thirtyDaysAgo } } },
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  delivered: { $sum: { $cond: [{ $eq: ['$status', BOOKING_STATUS.DELIVERED] }, 1, 0] } },
-                  confirmed: { $sum: { $cond: [{ $eq: ['$status', BOOKING_STATUS.CONFIRMED] }, 1, 0] } },
-                  with_trip: { $sum: { $cond: [{ $ne: ['$trip', null] }, 1, 0] } },
-                },
-              },
-            ],
-            previous: [
-              { $match: { created_at: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  delivered: { $sum: { $cond: [{ $eq: ['$status', BOOKING_STATUS.DELIVERED] }, 1, 0] } },
-                  confirmed: { $sum: { $cond: [{ $eq: ['$status', BOOKING_STATUS.CONFIRMED] }, 1, 0] } },
-                  with_trip: { $sum: { $cond: [{ $ne: ['$trip', null] }, 1, 0] } },
-                },
-              },
-            ],
-            all_time: [
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  delivered: { $sum: { $cond: [{ $eq: ['$status', BOOKING_STATUS.DELIVERED] }, 1, 0] } },
-                  confirmed: { $sum: { $cond: [{ $eq: ['$status', BOOKING_STATUS.CONFIRMED] }, 1, 0] } },
-                  with_trip: { $sum: { $cond: [{ $ne: ['$trip', null] }, 1, 0] } },
-                },
-              },
-            ],
-          },
-        },
+        { $match: { created_at: { $gte: thirtyDaysAgo } } },
+        bookingGroupStage,
       ]),
+      this.bookingModel.aggregate([
+        { $match: { created_at: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
+        bookingGroupStage,
+      ]),
+      this.bookingModel.aggregate([bookingGroupStage]),
 
-      // Trip counts for booking rate
       this.tripModel.aggregate([
-        {
-          $facet: {
-            current: [
-              { $match: { createdAt: { $gte: thirtyDaysAgo }, status: TRIP_STATUS.PUBLISHED } },
-              { $count: 'total' },
-            ],
-            previous: [
-              { $match: { createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo }, status: TRIP_STATUS.PUBLISHED } },
-              { $count: 'total' },
-            ],
-            all_time: [
-              { $match: { status: TRIP_STATUS.PUBLISHED } },
-              { $count: 'total' },
-            ],
-          },
-        },
+        { $match: { createdAt: { $gte: thirtyDaysAgo }, status: TRIP_STATUS.PUBLISHED } },
+        { $count: 'total' },
+      ]),
+      this.tripModel.aggregate([
+        { $match: { createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo }, status: TRIP_STATUS.PUBLISHED } },
+        { $count: 'total' },
+      ]),
+      this.tripModel.aggregate([
+        { $match: { status: TRIP_STATUS.PUBLISHED } },
+        { $count: 'total' },
       ]),
 
-      // Ticket counts for dispute rate
       this.ticketModel.aggregate([
-        {
-          $facet: {
-            current: [{ $match: { createdAt: { $gte: thirtyDaysAgo } } }, { $count: 'total' }],
-            previous: [{ $match: { createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } }, { $count: 'total' }],
-            all_time: [{ $count: 'total' }],
-          },
-        },
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $count: 'total' },
       ]),
-
-      // Report counts (disputes)
-      this.reportModel.aggregate([
-        {
-          $facet: {
-            current: [{ $match: { createdAt: { $gte: thirtyDaysAgo } } }, { $count: 'total' }],
-            previous: [{ $match: { createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } }, { $count: 'total' }],
-            all_time: [{ $count: 'total' }],
-          },
-        },
+      this.ticketModel.aggregate([
+        { $match: { createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
+        { $count: 'total' },
       ]),
+      this.ticketModel.aggregate([{ $count: 'total' }]),
 
-      // KYC approval rate
+      this.reportModel.aggregate([{ $count: 'total' }]),
+
+      this.userModel.aggregate([
+        { $match: { ...nonAdminFilter, createdAt: { $gte: thirtyDaysAgo } } },
+        kycGroupStage,
+      ]),
+      this.userModel.aggregate([
+        { $match: { ...nonAdminFilter, createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
+        kycGroupStage,
+      ]),
       this.userModel.aggregate([
         { $match: nonAdminFilter },
-        {
-          $facet: {
-            current: [
-              { $match: { createdAt: { $gte: thirtyDaysAgo } } },
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  approved: { $sum: { $cond: ['$isKycVerified', 1, 0] } },
-                  submitted: {
-                    $sum: {
-                      $cond: [
-                        {
-                          $or: [
-                            { $and: [{ $ne: ['$passport_info.file', ''] }, { $ne: ['$passport_info.file', null] }] },
-                            { $and: [{ $ne: ['$id_card_info.front', ''] }, { $ne: ['$id_card_info.front', null] }] },
-                          ],
-                        },
-                        1,
-                        0,
-                      ],
-                    },
-                  },
-                },
-              },
-            ],
-            previous: [
-              { $match: { createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  approved: { $sum: { $cond: ['$isKycVerified', 1, 0] } },
-                  submitted: {
-                    $sum: {
-                      $cond: [
-                        {
-                          $or: [
-                            { $and: [{ $ne: ['$passport_info.file', ''] }, { $ne: ['$passport_info.file', null] }] },
-                            { $and: [{ $ne: ['$id_card_info.front', ''] }, { $ne: ['$id_card_info.front', null] }] },
-                          ],
-                        },
-                        1,
-                        0,
-                      ],
-                    },
-                  },
-                },
-              },
-            ],
-            all_time: [
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  approved: { $sum: { $cond: ['$isKycVerified', 1, 0] } },
-                  submitted: {
-                    $sum: {
-                      $cond: [
-                        {
-                          $or: [
-                            { $and: [{ $ne: ['$passport_info.file', ''] }, { $ne: ['$passport_info.file', null] }] },
-                            { $and: [{ $ne: ['$id_card_info.front', ''] }, { $ne: ['$id_card_info.front', null] }] },
-                          ],
-                        },
-                        1,
-                        0,
-                      ],
-                    },
-                  },
-                },
-              },
-            ],
-          },
-        },
+        kycGroupStage,
       ]),
 
-      // Average payout time (withdraw transactions)
       this.transactionModel.aggregate([
-        {
-          $match: {
-            type: TRANSACTION_TYPE.WITHDRAW,
-            status: TRANSACTION_STATUS.COMPLETED,
-          },
-        },
-        {
-          $facet: {
-            current: [
-              { $match: { createdAt: { $gte: thirtyDaysAgo } } },
-              {
-                $group: {
-                  _id: null,
-                  avg_days: {
-                    $avg: {
-                      $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000 * 60 * 60 * 24],
-                    },
-                  },
-                },
-              },
-            ],
-            previous: [
-              { $match: { createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
-              {
-                $group: {
-                  _id: null,
-                  avg_days: {
-                    $avg: {
-                      $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000 * 60 * 60 * 24],
-                    },
-                  },
-                },
-              },
-            ],
-            all_time: [
-              {
-                $group: {
-                  _id: null,
-                  avg_days: {
-                    $avg: {
-                      $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000 * 60 * 60 * 24],
-                    },
-                  },
-                },
-              },
-            ],
-          },
-        },
+        { $match: { ...payoutMatch, createdAt: { $gte: thirtyDaysAgo } } },
+        payoutAvgGroup,
+      ]),
+      this.transactionModel.aggregate([
+        { $match: { ...payoutMatch, createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
+        payoutAvgGroup,
+      ]),
+      this.transactionModel.aggregate([
+        { $match: payoutMatch },
+        payoutAvgGroup,
       ]),
 
-      // Customer satisfaction (reviews)
+      this.reviewModel.aggregate([
+        { $match: { status: 'approved', createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: null, avg_rating: { $avg: '$rating' } } },
+      ]),
+      this.reviewModel.aggregate([
+        { $match: { status: 'approved', createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
+        { $group: { _id: null, avg_rating: { $avg: '$rating' } } },
+      ]),
       this.reviewModel.aggregate([
         { $match: { status: 'approved' } },
-        {
-          $facet: {
-            current: [
-              { $match: { createdAt: { $gte: thirtyDaysAgo } } },
-              { $group: { _id: null, avg_rating: { $avg: '$rating' } } },
-            ],
-            previous: [
-              { $match: { createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
-              { $group: { _id: null, avg_rating: { $avg: '$rating' } } },
-            ],
-            all_time: [{ $group: { _id: null, avg_rating: { $avg: '$rating' } } }],
-          },
-        },
+        { $group: { _id: null, avg_rating: { $avg: '$rating' } } },
       ]),
 
-      // Top routes by demand
       this.bookingModel.aggregate([
         {
           $match: {
@@ -792,7 +694,6 @@ export class AdminService {
         },
       ]),
 
-      // Dispute trends by report type
       this.reportModel.aggregate([
         {
           $group: {
@@ -811,120 +712,106 @@ export class AdminService {
         },
       ]),
 
-      // Financial overview
       this.transactionModel.aggregate([
         {
-          $facet: {
-            revenue: [
-              {
-                $match: {
-                  type: TRANSACTION_TYPE.PAYMENT,
-                  status: TRANSACTION_STATUS.COMPLETED,
-                },
-              },
-              { $group: { _id: null, total: { $sum: '$platform_charge' } } },
-            ],
-            commission: [
-              {
-                $match: {
-                  status: TRANSACTION_STATUS.COMPLETED,
-                  platform_charge: { $gt: 0 },
-                },
-              },
-              { $group: { _id: null, total: { $sum: '$platform_charge' } } },
-            ],
-            payouts: [
-              {
-                $match: {
-                  type: TRANSACTION_TYPE.WITHDRAW,
-                  status: TRANSACTION_STATUS.COMPLETED,
-                },
-              },
-              { $group: { _id: null, total: { $sum: '$amount' } } },
-            ],
-            booking_revenue: [
-              {
-                $lookup: {
-                  from: 'bookings',
-                  localField: 'booking',
-                  foreignField: '_id',
-                  as: 'booking_data',
-                },
-              },
-              { $unwind: { path: '$booking_data', preserveNullAndEmptyArrays: false } },
-              {
-                $match: {
-                  type: TRANSACTION_TYPE.PAYMENT,
-                  status: TRANSACTION_STATUS.COMPLETED,
-                },
-              },
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: '$booking_data.price_breakdown.service_charge' },
-                  commission: { $sum: '$booking_data.price_breakdown.service_charge' },
-                },
-              },
-            ],
+          $match: {
+            type: TRANSACTION_TYPE.PAYMENT,
+            status: TRANSACTION_STATUS.COMPLETED,
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$platform_charge' } } },
+      ]),
+      this.transactionModel.aggregate([
+        {
+          $match: {
+            status: TRANSACTION_STATUS.COMPLETED,
+            platform_charge: { $gt: 0 },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$platform_charge' } } },
+      ]),
+      this.transactionModel.aggregate([
+        {
+          $match: {
+            type: TRANSACTION_TYPE.WITHDRAW,
+            status: TRANSACTION_STATUS.COMPLETED,
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      this.transactionModel.aggregate([
+        {
+          $lookup: {
+            from: 'bookings',
+            localField: 'booking',
+            foreignField: '_id',
+            as: 'booking_data',
+          },
+        },
+        { $unwind: { path: '$booking_data', preserveNullAndEmptyArrays: false } },
+        {
+          $match: {
+            type: TRANSACTION_TYPE.PAYMENT,
+            status: TRANSACTION_STATUS.COMPLETED,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$booking_data.price_breakdown.service_charge' },
+            commission: { $sum: '$booking_data.price_breakdown.service_charge' },
           },
         },
       ]),
 
-      // Support performance
       this.ticketModel.aggregate([
         {
-          $facet: {
-            totals: [
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  resolved: { $sum: { $cond: [{ $eq: ['$status', TicketStatus.CLOSED] }, 1, 0] } },
-                  open: { $sum: { $cond: [{ $eq: ['$status', TicketStatus.OPEN] }, 1, 0] } },
-                },
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            resolved: { $sum: { $cond: [{ $eq: ['$status', TicketStatus.CLOSED] }, 1, 0] } },
+            open: { $sum: { $cond: [{ $eq: ['$status', TicketStatus.OPEN] }, 1, 0] } },
+          },
+        },
+      ]),
+      this.ticketModel.aggregate([
+        { $match: { status: TicketStatus.CLOSED } },
+        {
+          $group: {
+            _id: null,
+            avg_hours: {
+              $avg: {
+                $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000 * 60 * 60],
               },
-            ],
-            response_time: [
-              { $match: { status: TicketStatus.CLOSED } },
-              {
-                $group: {
-                  _id: null,
-                  avg_hours: {
-                    $avg: {
-                      $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000 * 60 * 60],
-                    },
-                  },
-                },
-              },
-            ],
+            },
           },
         },
       ]),
     ]);
 
-    const currentBookings = bookingStats[0]?.current[0] || { total: 0, delivered: 0, confirmed: 0, with_trip: 0 };
-    const previousBookings = bookingStats[0]?.previous[0] || { total: 0, delivered: 0, confirmed: 0, with_trip: 0 };
-    const allTimeBookings = bookingStats[0]?.all_time[0] || { total: 0, delivered: 0, confirmed: 0, with_trip: 0 };
+    const currentBookings = bookingCurrent[0] || { total: 0, delivered: 0, confirmed: 0, with_trip: 0 };
+    const previousBookings = bookingPrevious[0] || { total: 0, delivered: 0, confirmed: 0, with_trip: 0 };
+    const allTimeBookings = bookingAllTime[0] || { total: 0, delivered: 0, confirmed: 0, with_trip: 0 };
 
-    const currentTrips = tripStats[0]?.current[0]?.total || 0;
-    const previousTrips = tripStats[0]?.previous[0]?.total || 0;
-    const allTimeTrips = tripStats[0]?.all_time[0]?.total || 0;
+    const currentTrips = tripCurrent[0]?.total || 0;
+    const previousTrips = tripPrevious[0]?.total || 0;
+    const allTimeTrips = tripAllTime[0]?.total || 0;
 
-    const currentTickets = ticketStats[0]?.current[0]?.total || 0;
-    const previousTickets = ticketStats[0]?.previous[0]?.total || 0;
-    const allTimeTickets = ticketStats[0]?.all_time[0]?.total || 0;
+    const currentTickets = ticketCurrent[0]?.total || 0;
+    const previousTickets = ticketPrevious[0]?.total || 0;
+    const allTimeTickets = ticketAllTime[0]?.total || 0;
 
-    const currentKyc = kycStats[0]?.current[0] || { approved: 0, submitted: 0 };
-    const previousKyc = kycStats[0]?.previous[0] || { approved: 0, submitted: 0 };
-    const allTimeKyc = kycStats[0]?.all_time[0] || { approved: 0, submitted: 0 };
+    const currentKyc = kycCurrent[0] || { approved: 0, submitted: 0 };
+    const previousKyc = kycPrevious[0] || { approved: 0, submitted: 0 };
+    const allTimeKyc = kycAllTime[0] || { approved: 0, submitted: 0 };
 
-    const currentPayoutDays = payoutStats[0]?.current[0]?.avg_days || 0;
-    const previousPayoutDays = payoutStats[0]?.previous[0]?.avg_days || 0;
-    const allTimePayoutDays = payoutStats[0]?.all_time[0]?.avg_days || 0;
+    const currentPayoutDays = payoutCurrent[0]?.avg_days || 0;
+    const previousPayoutDays = payoutPrevious[0]?.avg_days || 0;
+    const allTimePayoutDays = payoutAllTime[0]?.avg_days || 0;
 
-    const currentRating = reviewStats[0]?.current[0]?.avg_rating || 0;
-    const previousRating = reviewStats[0]?.previous[0]?.avg_rating || 0;
-    const allTimeRating = reviewStats[0]?.all_time[0]?.avg_rating || 0;
+    const currentRating = reviewCurrent[0]?.avg_rating || 0;
+    const previousRating = reviewPrevious[0]?.avg_rating || 0;
+    const allTimeRating = reviewAllTime[0]?.avg_rating || 0;
 
     const conversionRate = calcRate(allTimeBookings.delivered + allTimeBookings.confirmed, allTimeBookings.total);
     const prevConversionRate = calcRate(previousBookings.delivered + previousBookings.confirmed, previousBookings.total);
@@ -942,20 +829,19 @@ export class AdminService {
     const prevKycRate = calcRate(previousKyc.approved, previousKyc.submitted || previousKyc.approved);
     const currKycRate = calcRate(currentKyc.approved, currentKyc.submitted || currentKyc.approved);
 
-    const supportTotals = supportStats[0]?.totals[0] || { total: 0, resolved: 0, open: 0 };
-    const avgResponseHours = Number((supportStats[0]?.response_time[0]?.avg_hours || 0).toFixed(1));
+    const supportTotals = supportTotalsAgg[0] || { total: 0, resolved: 0, open: 0 };
+    const avgResponseHours = Number((supportResponseAgg[0]?.avg_hours || 0).toFixed(1));
     const firstContactResolution = calcRate(supportTotals.resolved, supportTotals.total);
 
-    const financial = financialStats[0];
     const totalRevenue =
-      financial?.booking_revenue[0]?.total ||
-      financial?.revenue[0]?.total ||
+      financialBookingRevenue[0]?.total ||
+      financialRevenue[0]?.total ||
       0;
     const commissionEarned =
-      financial?.booking_revenue[0]?.commission ||
-      financial?.commission[0]?.total ||
+      financialBookingRevenue[0]?.commission ||
+      financialCommission[0]?.total ||
       0;
-    const totalPayouts = financial?.payouts[0]?.total || 0;
+    const totalPayouts = financialPayouts[0]?.total || 0;
 
     return sendResponse({
       statusCode: HttpStatus.OK,
@@ -1026,7 +912,7 @@ export class AdminService {
           total_bookings: allTimeBookings.total,
           total_trips: allTimeTrips,
           total_tickets: allTimeTickets,
-          total_reports: reportStats[0]?.all_time[0]?.total || 0,
+          total_reports: reportAllTime[0]?.total || 0,
           total_disputes: allTimeTickets,
         },
       },
