@@ -57,6 +57,12 @@ export class ReportController {
     return this.reportService.refundRequestForAdmin(data, user.id);
   }
 
+  @Get(':reportId/users')
+  @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
+  getReportsUsersByReportId(@Param('reportId') reportId: string) {
+    return this.reportService.getReportsUsersByReportId(reportId);
+  }
+
   @Get(':reportId')
   @Auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN)
   async getSingleReport(@Param('reportId') reportId: string) {

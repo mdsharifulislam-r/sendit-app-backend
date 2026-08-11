@@ -35,6 +35,9 @@ export class RefundOnReportDto {
     @Min(0, { message: 'Refund amount must be greater than 0' })
     amount: number
 
+    @IsMongoId()
+    user_id: string
+
     @IsString()
     @IsOptional()
     reason: string
