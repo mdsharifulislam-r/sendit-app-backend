@@ -223,52 +223,52 @@ export class ReportService {
             throw new ApiError(400, 'Refund amount is greater than booking amount')
         }
 
-        if (bookingInfo.payment_intent_id) {
-            await this.stripeService.getClient().refunds.create({
-                payment_intent: bookingInfo.payment_intent_id,
-                amount: Math.round(payload.amount * 100),
-                reason: "requested_by_customer",
-                metadata: {
-                    refund_request_id: report._id.toString(),
-                    amount: payload.amount,
-                    report_id: report.report_id,
-                }
-            })
+        // if (bookingInfo.payment_intent_id) {
+        //     await this.stripeService.getClient().refunds.create({
+        //         payment_intent: bookingInfo.payment_intent_id,
+        //         amount: Math.round(payload.amount * 100),
+        //         reason: "requested_by_customer",
+        //         metadata: {
+        //             refund_request_id: report._id.toString(),
+        //             amount: payload.amount,
+        //             report_id: report.report_id,
+        //         }
+        //     })
 
-            await this.reportModel.findByIdAndUpdate(report._id, {
-                is_refunded: true,
-                refund_reason: payload.reason,
-                refunded_amount: payload.amount,
-            })
+        //     await this.reportModel.findByIdAndUpdate(report._id, {
+        //         is_refunded: true,
+        //         refund_reason: payload.reason,
+        //         refunded_amount: payload.amount,
+        //     })
 
-            await this.snsService.publish<CreateAuditLogsDto>('audit.create', {
-                action: 'Refund Request',
-                old_value: report.status,
-                new_value: 'resolved',
-                reason: payload.reason,
-                user: userId as any
-            })
+        //     await this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+        //         action: 'Refund Request',
+        //         old_value: report.status,
+        //         new_value: 'resolved',
+        //         reason: payload.reason,
+        //         user: userId as any
+        //     })
 
-            await this.snsService.publish<CreateNotificationDto>('notification.send', {
-                title: 'Refund Request',
-                message: `Your refund request has been processed successfully.`,
-                isRead: false,
-                receiver: [report.user as any],
-                filePath: FilePathType.REPORT,
-                referenceId: report._id.toString(),
-            })
+        //     await this.snsService.publish<CreateNotificationDto>('notification.send', {
+        //         title: 'Refund Request',
+        //         message: `Your refund request has been processed successfully.`,
+        //         isRead: false,
+        //         receiver: [report.user as any],
+        //         filePath: FilePathType.REPORT,
+        //         referenceId: report._id.toString(),
+        //     })
 
-            await this.cacheService.deleteByPattern('report')
+        //     await this.cacheService.deleteByPattern('report')
 
-            return sendResponse({
-                message: 'Refund request sent successfully',
-                success: true,
-                statusCode: 200,
-            })
-        }
+        //     return sendResponse({
+        //         message: 'Refund request sent successfully',
+        //         success: true,
+        //         statusCode: 200,
+        //     })
+        // }
 
         await this.snsService.publish<{ userId: string, amount: number }>('add.balance', {
-            userId: report.user.toString(),
+            userId: payload.user_id,
             amount: payload.amount,
         })
 
@@ -288,9 +288,9 @@ export class ReportService {
 
         await this.snsService.publish<CreateNotificationDto>('notification.send', {
             title: 'Refund Request',
-            message: `Your refund request has been processed successfully.`,
+            message: `Admin has added ${payload.amount} to your wallet for refund request.`,
             isRead: false,
-            receiver: [report.user as any],
+            receiver: [payload.user_id as any],
             filePath: FilePathType.REPORT,
             referenceId: report._id.toString(),
         })
@@ -306,6 +306,33 @@ export class ReportService {
 
 
 
+    }
+
+    async getReportsUsersByReportId(reportId: string) {
+        const report: any = await this.reportModel.findById(reportId).select('booking').populate({
+            path: 'booking',
+            select: 'receiver transporter sender',
+            populate: [
+                {
+                    path: 'receiver transporter sender',
+                    select: 'name phone email image'
+                }
+            ]
+        })
+
+        if (!report) {
+            throw new ApiError(404, 'Report not found')
+        }
+        return sendResponse({
+            message: 'report fetched successfully',
+            success: true,
+            statusCode: 200,
+            data: [
+                report.booking.receiver,
+                report.booking.transporter,
+                report.booking.sender
+            ]
+        })
     }
 
 
