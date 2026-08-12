@@ -689,7 +689,8 @@ export class AdminService {
               ],
             },
             bookings: 1,
-            revenue: { $round: ['$revenue', 2] },
+            // DocumentDB does not support $round — round in application code
+            revenue: 1,
           },
         },
       ]),
@@ -886,7 +887,10 @@ export class AdminService {
             ),
           },
         },
-        top_routes_by_demand: topRoutes,
+        top_routes_by_demand: topRoutes.map((route: { route: string; bookings: number; revenue: number }) => ({
+          ...route,
+          revenue: Number((route.revenue || 0).toFixed(2)),
+        })),
         support_performance: {
           avg_response_time: {
             value: avgResponseHours,
