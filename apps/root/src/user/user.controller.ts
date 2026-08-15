@@ -24,7 +24,6 @@ import { CurrentUser } from 'utils/decorators/user.decorator';
 import { Auth } from 'utils/guards/auth.guard';
 import { FileUpload } from 'utils/decorators/file-uploader.decorator';
 import { GetFile } from 'utils/decorators/get-file.decorator';
-import { SqsConsumer } from 'utils/decorators/sqs-consumer';
 
 @ApiTags('User')
 @Controller('user')
@@ -108,11 +107,6 @@ export class UserController {
     @Body() payload: ChangeEmailVerifyDto,
   ) {
     return this.userService.changeEmailAddressVerify(user.id, payload);
-  }
-
-  @SqsConsumer('email')
-  handleUserCreated(data: { userId: string }) {
-    console.log('User created:', data.userId);
   }
 
   @Delete('account-delete')

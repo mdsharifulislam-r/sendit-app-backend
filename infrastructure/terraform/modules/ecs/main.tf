@@ -165,6 +165,7 @@ resource "aws_ecs_task_definition" "services" {
       environment = concat(
         local.common_env,
         [
+          { name = "SERVICE_NAME", value = each.key },
           { name = "SQS_QUEUE_URL", value = var.sqs_queue_urls[each.key] },
           { name = "${upper(each.key)}_SQS_QUEUE_URL", value = var.sqs_queue_urls[each.key] },
         ],

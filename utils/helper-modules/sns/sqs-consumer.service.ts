@@ -30,18 +30,19 @@ export class SqsConsumerService implements OnApplicationBootstrap {
         const serviceName = (process.env.SERVICE_NAME || 'root').toUpperCase();
         const serviceQueueUrl = process.env[`${serviceName}_SQS_QUEUE_URL`];
 
+        // ECS injects the per-service URL as SQS_QUEUE_URL — prefer that.
+        if (process.env.SQS_QUEUE_URL) {
+            console.log(
+                `[SqsConsumerService] Using SQS_QUEUE_URL for ${serviceName}: ${process.env.SQS_QUEUE_URL}`,
+            );
+            return process.env.SQS_QUEUE_URL;
+        }
+
         if (serviceQueueUrl) {
             console.log(
                 `[SqsConsumerService] Using service-specific queue URL for ${serviceName}: ${serviceQueueUrl}`,
             );
             return serviceQueueUrl;
-        }
-
-        if (process.env.SQS_QUEUE_URL) {
-            console.log(
-                `[SqsConsumerService] Using default queue URL: ${process.env.SQS_QUEUE_URL}`,
-            );
-            return process.env.SQS_QUEUE_URL;
         }
 
         throw new Error(
@@ -61,6 +62,7 @@ export class SqsConsumerService implements OnApplicationBootstrap {
                 );
 
                 for (const msg of res.Messages || []) {
+                    const serviceName = (process.env.SERVICE_NAME || 'root').toUpperCase();
                     try {
                         const body = JSON.parse(msg.Body!);
                         // If SQS is subscribed to an SNS topic, the SNS message is stored inside the 'Message' property as a JSON string.
@@ -80,6 +82,9 @@ export class SqsConsumerService implements OnApplicationBootstrap {
 
                         const handler = this.registry.getHandler(payload.eventType);
                         if (handler) {
+                            console.log(
+                                `[SqsConsumerService] Handling "${payload.eventType}" on ${serviceName}`,
+                            );
                             await handler(payload.data);
                             await this.sqs.send(
                                 new DeleteMessageCommand({
@@ -88,9 +93,9 @@ export class SqsConsumerService implements OnApplicationBootstrap {
                                 }),
                             );
                         } else {
-                            const serviceName = (process.env.SERVICE_NAME || 'root').toUpperCase();
                             const isDedicatedQueue = Boolean(
-                                process.env[`${serviceName}_SQS_QUEUE_URL`],
+                                process.env.SQS_QUEUE_URL ||
+                                    process.env[`${serviceName}_SQS_QUEUE_URL`],
                             );
 
                             if (isDedicatedQueue) {

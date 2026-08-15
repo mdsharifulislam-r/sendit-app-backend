@@ -16,17 +16,29 @@ const taskDef = JSON.parse(readFileSync(file, 'utf8'));
 let patched = false;
 
 for (const container of taskDef.containerDefinitions ?? []) {
-  for (const env of container.environment ?? []) {
-    if (env.name !== 'DB_URI' || !env.value) continue;
+  const env = container.environment ?? [];
+  container.environment = env;
 
-    if (!env.value.includes('authMechanism=')) {
-      const separator = env.value.includes('?') ? '&' : '?';
-      env.value = `${env.value}${separator}authMechanism=SCRAM-SHA-1`;
+  const family = taskDef.family || '';
+  const serviceFromFamily = family.replace(/^sendit-[^-]+-/, '');
+
+  const hasServiceName = env.some((item) => item.name === 'SERVICE_NAME');
+  if (!hasServiceName && serviceFromFamily) {
+    env.push({ name: 'SERVICE_NAME', value: serviceFromFamily });
+    patched = true;
+  }
+
+  for (const item of env) {
+    if (item.name !== 'DB_URI' || !item.value) continue;
+
+    if (!item.value.includes('authMechanism=')) {
+      const separator = item.value.includes('?') ? '&' : '?';
+      item.value = `${item.value}${separator}authMechanism=SCRAM-SHA-1`;
       patched = true;
     }
 
-    if (env.value.includes('readPreference=secondaryPreferred')) {
-      env.value = env.value.replace(
+    if (item.value.includes('readPreference=secondaryPreferred')) {
+      item.value = item.value.replace(
         'readPreference=secondaryPreferred',
         'readPreference=primary',
       );

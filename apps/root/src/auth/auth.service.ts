@@ -158,9 +158,7 @@ export class AuthService {
     const otp = generateOTP();
     const template = emailTemplate.resetPassword({ email: user.email, otp });
 
-    this.emailService.sendEmail(template).catch((err) =>
-      this.logger.error(`Failed to send reset password email to ${user.email}`, err),
-    );
+    await this.snsService.publish("email.send", template)
 
     await this.userModel.findByIdAndUpdate(user._id, {
       authentication: {
