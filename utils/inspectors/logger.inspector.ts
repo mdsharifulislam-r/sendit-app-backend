@@ -14,6 +14,12 @@ export class LoggingInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest();
     const { method, originalUrl, ip, headers } = req;
+    const path = (req.path || originalUrl || '').split('?')[0];
+
+    if (this.isHealthCheck(path, headers['user-agent'])) {
+      return next.handle();
+    }
+
     const userAgent = headers['user-agent'] || 'unknown';
     const start = Date.now();
 
@@ -33,5 +39,13 @@ export class LoggingInterceptor implements NestInterceptor {
         return throwError(() => err);
       }),
     );
+  }
+
+  private isHealthCheck(path: string, userAgent?: string): boolean {
+    const normalized = path.replace(/\/+$/, '') || '/';
+    if (normalized === '/health' || normalized.endsWith('/health')) {
+      return true;
+    }
+    return Boolean(userAgent?.includes('ELB-HealthChecker'));
   }
 }

@@ -52,8 +52,37 @@ export async function loadAwsSecrets(): Promise<void> {
       response.SecretString ?? '{}',
     );
 
+    // Never let Secrets Manager overwrite infrastructure env injected by ECS
+    // (SNS/SQS URLs, IAM, DB, Redis). A full .env upload would break messaging.
+    const infrastructureKeys = new Set([
+      'AWS_REGION',
+      'AWS_SECRET_NAME',
+      'AWS_ACCESS_KEY_ID',
+      'AWS_SECRET_ACCESS_KEY',
+      'AWS_SESSION_TOKEN',
+      'AWS_BUCKET_NAME',
+      'SNS_TOPIC_ARN',
+      'SQS_QUEUE_URL',
+      'SERVICE_NAME',
+      'NODE_ENV',
+      'DB_URI',
+      'REDIS_HOST',
+      'REDIS_PORT',
+      'REDIS_TLS',
+      'PORT',
+      'TRIP_SERVER_PORT',
+      'COMMUNICATION_PORT',
+      'BOOKING_PORT',
+      'PAYMENT_PORT',
+      'ADMIN_PORT',
+      'IP_ADDRESS',
+    ]);
+
     let loaded = 0;
     for (const [key, value] of Object.entries(secretObject)) {
+      if (infrastructureKeys.has(key) || key.endsWith('_SQS_QUEUE_URL')) {
+        continue;
+      }
       process.env[key] = value ?? '';
       loaded++;
     }

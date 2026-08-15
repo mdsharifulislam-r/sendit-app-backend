@@ -7,17 +7,28 @@ export class SnsService {
     private sns = new SNSClient(awsClientConfig());
 
     async publish<T>(eventType: string, data: T) {
+        const topicArn = process.env.SNS_TOPIC_ARN;
+        if (!topicArn) {
+            throw new Error('[SnsService] SNS_TOPIC_ARN is not set');
+        }
+
         const command = new PublishCommand({
-            TopicArn: process.env.SNS_TOPIC_ARN,
+            TopicArn: topicArn,
             Message: JSON.stringify({
                 eventType,
                 data,
             }),
+            MessageAttributes: {
+                eventType: {
+                    DataType: 'String',
+                    StringValue: eventType,
+                },
+            },
         });
 
         try {
             const result = await this.sns.send(command);
-            console.log(`[SnsService] Published "${eventType}" → ${process.env.SNS_TOPIC_ARN}`);
+            console.log(`[SnsService] Published "${eventType}" → ${topicArn}`);
             return result;
         } catch (err) {
             console.error(`[SnsService] Failed to publish "${eventType}":`, err);

@@ -11,6 +11,7 @@ import { USER_ROLES } from 'utils/enums/user';
 import QueryBuilder from 'utils/queryBuilder/queryBuilder';
 import { CacheService } from 'utils/helper-modules/cache/cache.service';
 import sendResponse from 'utils/helper/sendResponse';
+import { SqsConsumer } from 'utils/decorators/sqs-consumer';
 
 @Injectable()
 export class CommunicationService {
@@ -22,19 +23,12 @@ export class CommunicationService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) { }
 
+  @SqsConsumer('email.send')
   async handleSendEmail(payload: ISendEmail) {
-    try {
-      const res = await this.emailService.sendEmail(payload);
-      return res;
-    } catch (error) {
-      console.log(error);
-      return {
-        message: 'Failed to send email',
-        error: error.message,
-      };
-    }
+    await this.emailService.sendEmail(payload);
   }
 
+  @SqsConsumer('notification.send')
   async sendNotification(payload: CreateNotificationDto) {
     try {
       if (!payload.receiver?.length) {

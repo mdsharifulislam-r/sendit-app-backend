@@ -39,10 +39,9 @@ export class SqsConsumerRegistry implements OnModuleInit {
                 const method = descriptor.value;
                 if (typeof method !== 'function') continue;
 
-                const eventType = this.reflector.get(
-                    SQS_CONSUMER_KEY,
-                    method,
-                );
+                const eventType =
+                    this.reflector.get(SQS_CONSUMER_KEY, method) ||
+                    Reflect.getMetadata(SQS_CONSUMER_KEY, method);
 
                 if (eventType) {
                     console.log(`[SqsConsumerRegistry] Registered handler for event "${eventType}" on ${instance.constructor.name}.${methodName}`);
