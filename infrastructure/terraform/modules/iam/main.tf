@@ -83,6 +83,7 @@ resource "aws_iam_role_policy" "task_permissions" {
       {
         Effect = "Allow"
         Action = [
+          "sqs:SendMessage",
           "sqs:ReceiveMessage",
           "sqs:DeleteMessage",
           "sqs:GetQueueAttributes",
