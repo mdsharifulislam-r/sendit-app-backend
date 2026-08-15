@@ -167,7 +167,12 @@ resource "aws_ecs_task_definition" "services" {
         [
           { name = "SERVICE_NAME", value = each.key },
           { name = "SQS_QUEUE_URL", value = var.sqs_queue_urls[each.key] },
-          { name = "${upper(each.key)}_SQS_QUEUE_URL", value = var.sqs_queue_urls[each.key] },
+        ],
+        [
+          for svc, url in var.sqs_queue_urls : {
+            name  = "${upper(svc)}_SQS_QUEUE_URL"
+            value = url
+          }
         ],
       )
 

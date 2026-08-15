@@ -40,7 +40,9 @@ resource "aws_sqs_queue" "main" {
   tags = { Name = "sendit-${var.environment}-${each.key}" }
 }
 
-# ─── SQS Queue Policy (allow SNS to send) ────────────────────────────────────
+data "aws_caller_identity" "current" {}
+
+# ─── SQS Queue Policy (SNS fan-out + same-account ECS SendMessage) ───────────
 resource "aws_sqs_queue_policy" "main" {
   for_each  = toset(local.services)
   queue_url = aws_sqs_queue.main[each.key].id
@@ -49,6 +51,7 @@ resource "aws_sqs_queue_policy" "main" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid       = "AllowSnsFanout"
         Effect    = "Allow"
         Principal = { Service = "sns.amazonaws.com" }
         Action    = "sqs:SendMessage"
@@ -58,6 +61,13 @@ resource "aws_sqs_queue_policy" "main" {
             "aws:SourceArn" = aws_sns_topic.main.arn
           }
         }
+      },
+      {
+        Sid       = "AllowAccountSendMessage"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Action    = "sqs:SendMessage"
+        Resource  = aws_sqs_queue.main[each.key].arn
       }
     ]
   })

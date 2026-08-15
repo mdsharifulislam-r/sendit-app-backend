@@ -8,6 +8,6 @@ import { SqsConsumerService } from './sqs-consumer.service';
 @Module({
     imports: [DiscoveryModule],
     providers: [SqsConsumerRegistry, SnsService, SqsConsumerService],
-    exports: [SqsConsumerRegistry, SnsService],
+    exports: [SqsConsumerRegistry, SnsService, SqsConsumerService],
 })
 export class SqsModule { }
