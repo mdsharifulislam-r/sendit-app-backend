@@ -181,6 +181,37 @@ export class TripService {
     });
   }
 
+  /**
+   * Approximates a circle as a closed GeoJSON Polygon (32-point ring).
+   * Required for $geoWithin.$geometry on 2dsphere-indexed fields —
+   * $centerSphere is NOT compatible with 2dsphere indexes.
+   *
+   * @param lng  Center longitude (degrees)
+   * @param lat  Center latitude  (degrees)
+   * @param radiusKm  Radius in kilometres
+   */
+  private buildCirclePolygon(
+    lng: number,
+    lat: number,
+    radiusKm: number,
+    points = 32,
+  ): number[][][] {
+    const earthRadius = 6371; // km
+    const latRad = (lat * Math.PI) / 180;
+    const dLat = (radiusKm / earthRadius) * (180 / Math.PI);
+    const dLng = dLat / Math.cos(latRad);
+
+    const ring: number[][] = [];
+    for (let i = 0; i <= points; i++) {
+      const angle = (i / points) * 2 * Math.PI;
+      ring.push([
+        lng + dLng * Math.cos(angle),
+        lat + dLat * Math.sin(angle),
+      ]);
+    }
+    return [ring]; // GeoJSON Polygon coordinates format
+  }
+
   async searchTrips(query: SearchTripDto) {
     const {
       search,
@@ -264,15 +295,21 @@ export class TripService {
 
     /**
      * RETURN LOCATION
-     * Uses $geoWithin
+     * $geoWithin.$geometry (GeoJSON Polygon) — compatible with 2dsphere indexes.
+     * $centerSphere is NOT compatible with 2dsphere indexes and causes
+     * "unknown geo specifier: $centerSphere" errors.
      */
     if (returnLat != null && returnLng != null) {
       filter.return_location = {
         $geoWithin: {
-          $centerSphere: [
-            [Number(returnLng), Number(returnLat)],
-            Number(radiusKm) / 6378.1,
-          ],
+          $geometry: {
+            type: 'Polygon',
+            coordinates: this.buildCirclePolygon(
+              Number(returnLng),
+              Number(returnLat),
+              Number(radiusKm),
+            ),
+          },
         },
       };
     }
