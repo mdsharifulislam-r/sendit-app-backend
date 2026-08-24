@@ -424,6 +424,7 @@ export class TripService {
               distanceField: '_dist',
               maxDistance: Number(radiusKm) * 1000,
               spherical: true,
+              key: 'departure_location', // required when collection has multiple 2dsphere indexes
               query: countMatchFilter,
             },
           },
