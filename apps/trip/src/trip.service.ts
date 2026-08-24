@@ -324,15 +324,17 @@ export class TripService {
 
     /**
      * DIRECT
+     * directOnly arrives as a boolean-string ("true"/"false") from query params
      */
-    if (directOnly) {
+    if (directOnly === true || (directOnly as any) === 'true') {
       filter.stops = { $size: 0 };
     }
 
     /**
      * WITH STOPS
+     * allowStops arrives as a boolean-string ("true"/"false") from query params
      */
-    if (allowStops) {
+    if (allowStops === true || (allowStops as any) === 'true') {
       filter['stops.0'] = { $exists: true };
     }
 
@@ -365,16 +367,34 @@ export class TripService {
       sortOption.avg_rating = -1;
     }
 
-    const countFilter = { ...filter };
+    /**
+     * COUNT QUERY
+     * $near cannot be used in countDocuments(), and $geoWithin/$centerSphere
+     * is unreliable on 2dsphere-indexed fields. Use $geoNear aggregation instead.
+     */
+    let countPromise: Promise<number>;
     if (lat != null && lng != null) {
-      countFilter.departure_location = {
-        $geoWithin: {
-          $centerSphere: [
-            [Number(lng), Number(lat)],
-            Number(radiusKm) / 6378.1,
-          ],
-        },
-      };
+      // Build a filter without the $near departure_location for aggregation
+      const { departure_location: _removed, ...countMatchFilter } = filter;
+      countPromise = this.tripModel
+        .aggregate([
+          {
+            $geoNear: {
+              near: {
+                type: 'Point',
+                coordinates: [Number(lng), Number(lat)],
+              },
+              distanceField: '_dist',
+              maxDistance: Number(radiusKm) * 1000,
+              spherical: true,
+              query: countMatchFilter,
+            },
+          },
+          { $count: 'total' },
+        ])
+        .then((result) => result[0]?.total ?? 0);
+    } else {
+      countPromise = this.tripModel.countDocuments(filter);
     }
 
     const [entities, total] = await Promise.all([
@@ -396,7 +416,7 @@ export class TripService {
         .limit(limit)
         .lean(),
 
-      this.tripModel.countDocuments(countFilter),
+      countPromise,
     ]);
 
     const formatted = entities.map((trip: any) => ({

@@ -6,6 +6,7 @@ import {
 } from '@aws-sdk/client-sqs';
 import { awsClientConfig } from 'utils/config/aws-client';
 import { SqsConsumerRegistry } from './sqs-consumer.registry';
+import { EVENT_SERVICE_MAP } from 'utils/config/sqs-events';
 
 @Injectable()
 export class SqsConsumerService implements OnApplicationBootstrap {
@@ -86,9 +87,19 @@ export class SqsConsumerService implements OnApplicationBootstrap {
                             continue;
                         }
 
+                        const owner = EVENT_SERVICE_MAP[payload.eventType];
+                        const thisService = (process.env.SERVICE_NAME || 'root').toLowerCase();
                         const handler = this.registry.getHandler(payload.eventType);
+
+                        if (owner && owner !== thisService) {
+                            console.log(
+                                `[SqsConsumerService] "${payload.eventType}" belongs to ${owner}, not ${thisService} — deleting copy`,
+                            );
+                            await this.deleteMessage(msg.ReceiptHandle!);
+                            continue;
+                        }
+
                         if (!handler) {
-                            // Fan-out copy for another service
                             console.log(
                                 `[SqsConsumerService] No handler for "${payload.eventType}" on ${serviceName} — deleting copy`,
                             );
