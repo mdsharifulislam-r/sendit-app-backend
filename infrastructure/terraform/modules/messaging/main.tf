@@ -14,6 +14,41 @@ resource "aws_sns_topic" "main" {
 # ─── SQS Queues per service ───────────────────────────────────────────────────
 locals {
   services = ["root", "communication", "booking", "payment", "trip", "admin"]
+
+  # Only deliver events to the service that actually handles them.
+  # Without this, SNS copies every message to every queue; root then retries
+  # email.send until it lands in sendit-dev-root-dlq.
+  queue_event_filters = {
+    root = [
+      "device.create",
+      "referral.create",
+    ]
+    communication = [
+      "email.send",
+      "notification.send",
+      "chat.create",
+      "chat.report.create",
+    ]
+    booking = [
+      "qr.code.generate",
+    ]
+    payment = [
+      "wallet.created",
+      "wallet.diposit",
+      "wallet.add.payment",
+      "add.balance",
+      "transaction.created",
+      "coupon.used",
+    ]
+    trip = [
+      "review.calculate",
+    ]
+    admin = [
+      "audit.create",
+      "audit.log.create",
+      "risk.item.create",
+    ]
+  }
 }
 
 # Dead Letter Queues
@@ -80,8 +115,11 @@ resource "aws_sns_topic_subscription" "main" {
   protocol  = "sqs"
   endpoint  = aws_sqs_queue.main[each.key].arn
 
-  # Raw message delivery so services can parse directly
   raw_message_delivery = false
+  filter_policy_scope  = "MessageAttributes"
+  filter_policy = jsonencode({
+    eventType = local.queue_event_filters[each.key]
+  })
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
