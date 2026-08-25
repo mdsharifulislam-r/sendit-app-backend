@@ -328,10 +328,10 @@ export class ReportService {
             success: true,
             statusCode: 200,
             data: [
-                report.booking.receiver,
-                report.booking.transporter,
-                report.booking.sender
-            ]
+                report.booking?.receiver,
+                report.booking?.transporter,
+                report.booking?.sender
+            ].filter(Boolean)
         })
     }
 
