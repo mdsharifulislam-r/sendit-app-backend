@@ -202,12 +202,16 @@ export class TripService {
     const dLng = dLat / Math.cos(latRad);
 
     const ring: number[][] = [];
-    for (let i = 0; i <= points; i++) {
+    for (let i = 0; i < points; i++) {
       const angle = (i / points) * 2 * Math.PI;
       ring.push([
         lng + dLng * Math.cos(angle),
         lat + dLat * Math.sin(angle),
       ]);
+    }
+    // Explicitly close the loop by duplicating the first point
+    if (ring.length > 0) {
+      ring.push([ring[0][0], ring[0][1]]);
     }
     return [ring]; // GeoJSON Polygon coordinates format
   }
