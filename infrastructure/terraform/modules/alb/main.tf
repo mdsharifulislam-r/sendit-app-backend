@@ -129,6 +129,12 @@ resource "aws_lb_target_group" "services" {
   vpc_id      = var.vpc_id
   target_type = "ip"
 
+  stickiness {
+    type            = "lb_cookie"
+    enabled         = true
+    cookie_duration = 86400
+  }
+
   health_check {
     enabled             = true
     path                = "/health"
@@ -176,7 +182,35 @@ resource "aws_lb_listener_rule" "service_routes" {
     }
   }
 
-  tags = { Service = each.key }
+}
+
+# ─── Socket.io Routing Rules ──────────────────────────────────────────────────
+# Routes Socket.io connections based on the 'service' query parameter
+resource "aws_lb_listener_rule" "socket_routes" {
+  for_each = { for s in ["trip", "booking", "communication", "payment", "admin", "root"] : s => s }
+
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 60 + index(["trip", "booking", "communication", "payment", "admin", "root"], each.key)
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.services[each.key].arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/socket.io*"]
+    }
+  }
+
+  condition {
+    query_string {
+      key   = "service"
+      value = each.key
+    }
+  }
+
+  tags = { Service = "${each.key}-socket" }
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
