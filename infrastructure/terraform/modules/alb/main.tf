@@ -4,9 +4,9 @@
 # Gateway removed — ALB handles routing
 # ──────────────────────────────────────────────────────────────────────────────
 
-variable "environment"        {}
-variable "vpc_id"             {}
-variable "public_subnet_ids"  {}
+variable "environment" {}
+variable "vpc_id" {}
+variable "public_subnet_ids" {}
 # variable "certificate_arn"    {}
 
 # ─── Service port map ─────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ locals {
     {
       service  = "communication"
       priority = 30
-      paths    = [
+      paths = [
         "/api/v1/notification*",
         "/api/v1/message*",
         "/api/v1/chat*",
@@ -49,7 +49,7 @@ locals {
     {
       service  = "payment"
       priority = 40
-      paths    = [
+      paths = [
         "/api/v1/wallet*",
         "/api/v1/coupon*",
         "/api/v1/transaction*",
@@ -60,7 +60,7 @@ locals {
     {
       service  = "admin"
       priority = 50
-      paths    = [
+      paths = [
         "/api/v1/admin*",
         "/api/v1/ticket*",
         "/api/v1/risk-settings*",
@@ -210,16 +210,17 @@ resource "aws_lb_listener_rule" "socket_routes" {
     }
   }
 
+
   tags = { Service = "${each.key}-socket" }
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
-output "alb_arn"            { value = aws_lb.main.arn }
-output "alb_dns_name"       { value = aws_lb.main.dns_name }
-output "alb_zone_id"        { value = aws_lb.main.zone_id }
-output "alb_sg_id"          { value = aws_security_group.alb.id }
+output "alb_arn" { value = aws_lb.main.arn }
+output "alb_dns_name" { value = aws_lb.main.dns_name }
+output "alb_zone_id" { value = aws_lb.main.zone_id }
+output "alb_sg_id" { value = aws_security_group.alb.id }
 # output "https_listener_arn" { value = aws_lb_listener.https.arn }
-output "http_listener_arn"  { value = aws_lb_listener.http.arn }
+output "http_listener_arn" { value = aws_lb_listener.http.arn }
 
 # Map of service name → target group ARN — consumed by ECS module
 output "service_tg_arns" {
