@@ -311,10 +311,10 @@ export class ReportService {
     async getReportsUsersByReportId(reportId: string) {
         const report: any = await this.reportModel.findById(reportId).select('booking').populate({
             path: 'booking',
-            select: 'receiver transporter sender',
+            select: 'receiver transporter sender user',
             populate: [
                 {
-                    path: 'receiver transporter sender',
+                    path: 'receiver transporter sender user',
                     select: 'name phone email image'
                 }
             ]
@@ -330,7 +330,8 @@ export class ReportService {
             data: [
                 report.booking?.receiver,
                 report.booking?.transporter,
-                report.booking?.sender
+                report.booking?.sender,
+                report.user
             ].filter(Boolean)
         })
     }
