@@ -705,7 +705,7 @@ export class BookingService {
       throw new ApiError(400, 'Booking is not in the correct stage to be picked up')
     }
 
-    if (TIMELINE_TYPE.BOOKED) {
+    if (TIMELINE_TYPE.BOOKED == booking.current_stage) {
       await this.pickupPercel(booking._id.toString(), booking.transporter.toString(), {} as any)
       return sendResponse({
         statusCode: HttpStatus.OK,
@@ -715,7 +715,7 @@ export class BookingService {
       });
     }
 
-    if (TIMELINE_TYPE.IN_TRANSIT) {
+    if (TIMELINE_TYPE.IN_TRANSIT == booking.current_stage) {
       await this.markAsDeliverdParcel(booking._id.toString(), booking.transporter.toString(), {} as any)
       return sendResponse({
         statusCode: HttpStatus.OK,
