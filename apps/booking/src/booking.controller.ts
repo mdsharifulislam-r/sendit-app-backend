@@ -174,6 +174,7 @@ export class BookingController {
     description: 'Change booking status by qr code',
   })
   scanSingleBookingQrCode(@CurrentUser() user: any, @Param('bookingId') bookingId: string) {
+    console.log('🚀 ~ BookingController ~ scanSingleBookingQrCode ~ bookingId:', bookingId)
     return this.bookingService.changeStatusByqrcode(bookingId, user.id)
   }
 
