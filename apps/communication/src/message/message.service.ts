@@ -41,6 +41,8 @@ export class MessageService {
             }
         }
 
+        console.log(payload)
+
         if (payload.documents) {
             payload.documents = await this.s3Service.uploadMultipleFiles(payload.documents)
         }
