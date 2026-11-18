@@ -43,7 +43,9 @@
       "entryFile": "main",
       "sourceRoot": "apps/communication/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/communication/tsconfig.app.json"
+        "tsConfigPath": "apps/communication/tsconfig.app.json",
+        "assets": ["firebase/firebase.json"],
+        "watchAssets": true
       }
     },
     "payment": {

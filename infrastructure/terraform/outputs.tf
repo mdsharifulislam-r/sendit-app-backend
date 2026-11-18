@@ -38,9 +38,19 @@ output "sns_topic_arn" {
   value       = module.messaging.sns_topic_arn
 }
 
+output "sns_fifo_topic_arn" {
+  description = "SNS FIFO events topic ARN"
+  value       = module.messaging.sns_fifo_topic_arn
+}
+
 output "sqs_queue_urls" {
   description = "Per-service SQS queue URLs"
   value       = module.messaging.sqs_queue_urls
+}
+
+output "sqs_fifo_queue_urls" {
+  description = "Per-service SQS FIFO queue URLs"
+  value       = module.messaging.sqs_fifo_queue_urls
 }
 
 output "ecs_cluster_name" {

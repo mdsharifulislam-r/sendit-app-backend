@@ -12,6 +12,9 @@ import QueryBuilder from 'utils/queryBuilder/queryBuilder';
 import { CacheService } from 'utils/helper-modules/cache/cache.service';
 import sendResponse from 'utils/helper/sendResponse';
 import { SqsConsumer } from 'utils/decorators/sqs-consumer';
+import { SnsService } from 'utils/helper-modules/sns/sns.service';
+import { SendPushNotificationDto } from './firebase/firebase.dto';
+import { FirebaseService } from './firebase/firebase.service';
 
 @Injectable()
 export class CommunicationService {
@@ -20,6 +23,8 @@ export class CommunicationService {
     @InjectModel(Notification.name) private notificationModel: Model<NotificationDocument>,
     private readonly socketService: SocketService,
     private readonly cacheService: CacheService,
+    private readonly snsService: SnsService,
+    private readonly firebaseService: FirebaseService,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) { }
 
@@ -31,6 +36,8 @@ export class CommunicationService {
   @SqsConsumer('notification.send')
   async sendNotification(payload: CreateNotificationDto) {
     try {
+      console.log(payload, 'payload');
+
       if (!payload.receiver?.length) {
         const adminUsers = await this.userModel.find({
           role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] },
@@ -43,8 +50,18 @@ export class CommunicationService {
         await this.cacheService.deleteByPattern(`notification:${userId}`)
         this.socketService.emit(`notification::${userId}`, data);
       }
+      // await this.snsService.publish<SendPushNotificationDto>('notification.send.push', {
+      //   userIds: payload.receiver,
+      //   title: payload.title,
+      //   body: payload.message || 'You have a new notification',
+      // });
+      await this.firebaseService.sendPushNotification({
+        userIds: payload.receiver,
+        title: payload.title,
+        body: payload.message || 'You have a new notification',
+      })
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
       return {
         message: 'Failed to send notification',

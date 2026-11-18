@@ -1,0 +1,21 @@
+aws_region  = "eu-central-1"
+environment = "ec2-dev"
+project     = "sendit"
+
+# Existing key pair name, OR leave "" to auto-create sendit-<env>-ec2.pem
+key_name = ""
+
+# Lock SSH to your IP when possible, e.g. "1.2.3.4/32"
+ssh_cidr = "0.0.0.0/0"
+
+instance_type  = "t3.xlarge"
+root_volume_gb = 40
+
+dockerhub_username = "YOUR_DOCKERHUB_USERNAME"
+image_tag          = "latest"
+
+# Optional: Secrets Manager secret name (apps call loadAwsSecrets)
+aws_secret_name = ""
+
+create_elastic_ip = true
+gateway_port      = 3010

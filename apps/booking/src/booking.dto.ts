@@ -30,8 +30,8 @@ export enum BOOKING_STATUS {
 }
 
 export enum DELIVERY_SPEED {
-    NORMAL = "Normal",
-    URGENT = "Urgent",
+    STANDARD = 'Standard',
+    EXPRESS = 'Express',
     ASAP = "ASAP"
 }
 
@@ -60,12 +60,10 @@ export class CreateBookingDto {
     package_size: PACKAGE_SIZE
 
     @ApiProperty({
-        enum: PACKAGE_TYPE,
         description: "Give the actual package type, this help to calculate the price",
         example: PACKAGE_TYPE.FOOD,
     })
     @IsNotEmpty()
-    @IsEnum(PACKAGE_TYPE)
     package_type: PACKAGE_TYPE
 
     @ApiProperty({
@@ -215,7 +213,7 @@ export class CreateBookingDto {
 
     @ApiProperty({
         description: "Give the delivery speed",
-        example: DELIVERY_SPEED.NORMAL,
+        example: DELIVERY_SPEED.EXPRESS,
     })
     @IsNotEmpty()
     @IsEnum(DELIVERY_SPEED)

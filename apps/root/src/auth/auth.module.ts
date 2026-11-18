@@ -12,6 +12,7 @@ import { Device, DeviceSchema } from '../device/device.entity';
 import { CacheService } from 'utils/helper-modules/cache/cache.service';
 import { RedisCacheModule } from 'utils/helper-modules/cache/cache.module';
 import { S3Service } from 'utils/helper-modules/upload/s3.service';
+import { WhatsappModule } from 'utils/helper-modules/whatsapp/whatsapp.module';
 
 
 @Module({
@@ -23,6 +24,7 @@ import { S3Service } from 'utils/helper-modules/upload/s3.service';
       { name: FaceVerification.name, schema: FaceVerificationSchema }
     ]),
     EmailModule,
+    WhatsappModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -39,4 +41,6 @@ import { S3Service } from 'utils/helper-modules/upload/s3.service';
   providers: [AuthService, AuthGuard, S3Service],
   exports: [JwtModule, AuthGuard, MongooseModule, RedisCacheModule],
 })
-export class AuthModule { }
+export class AuthModule {
+
+}

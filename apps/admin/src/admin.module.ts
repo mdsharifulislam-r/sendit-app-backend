@@ -18,7 +18,9 @@ import { Ticket, TicketSchema } from './ticket/ticket.entity';
 import { RiskyItems, RiskyItemsSchema } from './risk-settings/risk-settings.entity';
 import { Review, ReviewSchema } from 'apps/trip/src/review/review.entity';
 import { HealthModule } from 'utils/health/health.module';
-
+import { ScheduleModule } from '@nestjs/schedule';
+import { CronService } from './cron/cron.service';
+import { CronModule } from './cron/cron.module';
 @Module({
   imports: [
     HealthModule,
@@ -31,6 +33,10 @@ import { HealthModule } from 'utils/health/health.module';
       inject: [ConfigService],
       useFactory: mongooseFactory,
     }),
+    ScheduleModule.forRoot(),
+    CronModule,
+
+
 
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
@@ -51,8 +57,10 @@ import { HealthModule } from 'utils/health/health.module';
     RiskSettingsModule,
 
     TicketModule,
+
+    CronModule,
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, CronService],
 })
 export class AdminModule { }

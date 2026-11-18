@@ -21,6 +21,7 @@ import { CreateRiskyItems, RISK_ITEM_TYPE, RISKY_ITEM_STATUS } from 'apps/admin/
 import * as bcrypt from 'bcrypt';
 import { CacheService } from 'utils/helper-modules/cache/cache.service';
 import { ReferralService } from '../referral/referral.service';
+import { ISendEmail } from 'utils/helper-modules/email/email.interface';
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
@@ -73,9 +74,9 @@ export class UserService {
       otp,
     });
 
-    await this.snsService.publish('email.send', template);
+    this.snsService.publish('email.send', template);
 
-    await this.userModel.findByIdAndUpdate(savedUser._id, {
+    this.userModel.findByIdAndUpdate(savedUser._id, {
       authentication: {
         isResetPassword: false,
         oneTimeCode: otp,
@@ -205,6 +206,7 @@ export class UserService {
       throw new ApiError(HttpStatus.BAD_REQUEST, 'No files were uploaded');
     }
 
+
     const updateFields: any = {};
 
     if (dto.passport_image) {
@@ -307,10 +309,10 @@ export class UserService {
     const otp = generateOTP();
     const template = emailTemplate.changeEmailAddress({
       name: user.name,
-      email: user.email,
+      email: dto.email,
       otp,
     });
-    this.emailService.sendEmail(template);
+    this.snsService.publish<ISendEmail>('email.send', template)
     await this.userModel.findByIdAndUpdate(userId, {
       authentication: {
         isResetPassword: false,

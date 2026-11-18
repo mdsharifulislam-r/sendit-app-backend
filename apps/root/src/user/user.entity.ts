@@ -176,6 +176,9 @@ export class User {
   @Prop({ type: Boolean, default: false })
   is_fingerprint_verified: boolean
 
+  @Prop({ type: [String], default: [] })
+  fcm_tokens: string[]
+
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

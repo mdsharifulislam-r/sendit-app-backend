@@ -149,8 +149,10 @@ module "ecs" {
   redis_port     = module.redis.port
 
   # Messaging
-  sns_topic_arn  = module.messaging.sns_topic_arn
-  sqs_queue_urls = module.messaging.sqs_queue_urls
+  sns_topic_arn       = module.messaging.sns_topic_arn
+  sns_fifo_topic_arn  = module.messaging.sns_fifo_topic_arn
+  sqs_queue_urls      = module.messaging.sqs_queue_urls
+  sqs_fifo_queue_urls = module.messaging.sqs_fifo_queue_urls
 
   # S3 — use the real bucket name (includes terraform random suffix)
   s3_bucket_name = module.s3.bucket_name

@@ -140,7 +140,7 @@ export class TicketService {
 
 
         if (payload?.amount) {
-            await this.snsService.publish('add.balance', { userId: ticket.report_owner.toString(), amount: payload.amount })
+            await this.snsService.publish('add.balance', { userId: ticket.report_owner.toString(), amount: payload.amount }, { isFifo: true })
             await Promise.all([
                 this.snsService.publish<CreateTransactionDto>('transaction.created', {
                     amount: payload.amount,
@@ -150,7 +150,7 @@ export class TicketService {
                     ownerId: ticket.report_owner.toString(),
                     title: `Refund for ${ticket.ticket_id}`,
                     trx_id: ``
-                }),
+                }, { isFifo: true }),
 
                 this.snsService.publish<CreateAuditLogsDto>('audit.create', {
                     action: 'Ticket Resolved & Amount Refunded',

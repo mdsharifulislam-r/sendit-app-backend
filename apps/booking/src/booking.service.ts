@@ -273,7 +273,7 @@ export class BookingService {
           discount: service_charge_object.discount,
           tax: service_charge_object.tax,
           status: TRANSACTION_STATUS.COMPLETED,
-        } as CreateTransactionDto),
+        } as CreateTransactionDto, { isFifo: true }),
         this.snsService.publish('notification.send', {
           title: `Booking #${savedBooking.id}`,
           message: `Booking #${savedBooking.id} placed successfully`,
@@ -301,7 +301,7 @@ export class BookingService {
       ]);
 
       if (coupon) {
-        await this.snsService.publish('coupon.used', { code: coupon, userId: userId })
+        await this.snsService.publish('coupon.used', { code: coupon, userId: userId }, { isFifo: true })
       }
 
       await this.cacheService.deleteByPattern(`booking_request:${booking.transporter}`)
@@ -581,7 +581,7 @@ export class BookingService {
       booking_id: booking.id,
       _id: booking._id,
       sender: booking.sender._id.toString()
-    })
+    }, { isFifo: true })
     await this.snsService.publish('notification.send', {
       title: `Booking #${booking.id}`,
       message: `Booking #${booking.id} has been delivered by ${(booking.transporter as any)?.name}`,

@@ -6,6 +6,8 @@ import {
   ForgetPasswordDto,
   LoginDto,
   VerifyEmailDto,
+  WhatsappSendOtpDto,
+  WhatsappVerifyOtpDto,
 } from './auth.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument, ResetToken, ResetTokenDocument, FaceVerification, FaceVerificationDocument } from '../user/user.entity';
@@ -26,6 +28,9 @@ import { CreateDeviceDto } from '../device/device.dto';
 import { CreateReferralDto } from '../referral/referral.dto';
 import { S3Service } from 'utils/helper-modules/upload/s3.service';
 import { detectFace, verifyFace } from 'utils/helper/faceverificationHelper';
+import { CacheService } from 'utils/helper-modules/cache/cache.service';
+import { WhatsappService } from 'utils/helper-modules/whatsapp/whatsapp.service';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -38,7 +43,9 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
     private readonly snsService: SnsService,
-    private readonly s3Service: S3Service
+    private readonly s3Service: S3Service,
+    private readonly cacheService: CacheService,
+    private readonly whatsappService: WhatsappService,
   ) { }
 
   private async findActiveUserByEmail(email: string): Promise<UserDocument> {
@@ -79,7 +86,7 @@ export class AuthService {
     });
 
     if (!isResetPassword) {
-      await this.snsService.publish('wallet.created', user._id.toString());
+      await this.snsService.publish('wallet.created', user._id.toString(), { isFifo: true });
       await this.snsService.publish<CreateAuditLogsDto>('audit.create', {
         action: `New User Registered`,
         user: user._id,
@@ -137,6 +144,14 @@ export class AuthService {
       })
     }
 
+    if (payload.fcm_token) {
+      await this.userModel.findByIdAndUpdate(user._id, {
+        $addToSet: {
+          fcm_tokens: payload.fcm_token,
+        },
+      })
+    }
+
     const accessToken = this.jwtService.sign({
       id: user._id.toString(),
       role: user.role,
@@ -160,7 +175,7 @@ export class AuthService {
 
     await this.snsService.publish("email.send", template)
 
-    await this.userModel.findByIdAndUpdate(user._id, {
+   await await this.userModel.findByIdAndUpdate(user._id, {
       authentication: {
         isResetPassword: true,
         oneTimeCode: otp,
@@ -280,6 +295,14 @@ export class AuthService {
         })
       }
 
+      if (dto.fcm_token) {
+        await this.userModel.findByIdAndUpdate(user._id, {
+          $addToSet: {
+            fcm_tokens: dto.fcm_token,
+          },
+        })
+      }
+
       return sendResponse({
         statusCode: HttpStatus.OK,
         message: 'Login successful',
@@ -299,6 +322,14 @@ export class AuthService {
       await this.snsService.publish<CreateDeviceDto>('device.create', {
         ...dto.device_info,
         user: existUser._id.toString(),
+      })
+    }
+
+    if (dto.fcm_token) {
+      await this.userModel.findByIdAndUpdate(existUser._id, {
+        $addToSet: {
+          fcm_tokens: dto.fcm_token,
+        },
       })
     }
 
@@ -353,9 +384,8 @@ export class AuthService {
 
 
 
-    const imageFile = await this.s3Service.rawUploadFile(imagePath)
-    const discrimaniatior = await detectFace(imageFile.url)
-    this.s3Service.deleteFile(imageFile.url)
+    const discrimaniatior = await detectFace(imagePath)
+
 
     const exist = await this.faceVerificationModel.findOne({ deviceId: deviceId })
     if (exist) {
@@ -377,7 +407,6 @@ export class AuthService {
       faceDescriptor: discrimaniatior
     });
 
-    this.s3Service.deleteFile(imageFile.url)
 
     return sendResponse({
       statusCode: HttpStatus.OK,
@@ -388,6 +417,7 @@ export class AuthService {
 
 
   async faceverificationAndlogin(body: FaceRegistrationDto, imagePath: string) {
+    console.log(body)
     if (!imagePath && body.type == 'face') {
       throw new ApiError(HttpStatus.BAD_REQUEST, 'Image is required');
     }
@@ -401,9 +431,8 @@ export class AuthService {
       if (!faceVerification) {
         throw new ApiError(HttpStatus.NOT_FOUND, 'Face not found');
       }
-      const imageFile = await this.s3Service.rawUploadFile(imagePath)
-      const matchFace = await verifyFace(imageFile.url, faceVerification.faceDescriptor)
-      this.s3Service.deleteFile(imageFile.url)
+      const matchFace = await verifyFace(imagePath, faceVerification.faceDescriptor)
+
       if (!matchFace) {
         throw new ApiError(HttpStatus.UNAUTHORIZED, 'Face not match');
       }
@@ -442,6 +471,14 @@ export class AuthService {
       })
     }
 
+    if (body.fcm_token) {
+      await this.userModel.findByIdAndUpdate(user._id, {
+        $addToSet: {
+          fcm_tokens: body.fcm_token,
+        },
+      })
+    }
+
     return sendResponse({
       statusCode: HttpStatus.OK,
       message: 'Login successful',
@@ -450,5 +487,139 @@ export class AuthService {
     });
   }
 
+  async sendWhatsappOtp(payload: WhatsappSendOtpDto) {
+    const phone = this.normalizePhone(payload.phone);
+    const otp = generateOTP();
+    const cacheKey = this.whatsappOtpCacheKey(phone);
+
+    await this.cacheService.set(cacheKey, String(otp), 3 * 60);
+
+    try {
+      await this.whatsappService.sendOtp(phone, String(otp));
+    } catch (error) {
+      await this.cacheService.deleteByPattern(cacheKey);
+      throw error;
+    }
+
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      message: 'OTP sent to your WhatsApp number',
+      data: { phone },
+      success: true,
+    });
+  }
+
+  async verifyWhatsappOtp(payload: WhatsappVerifyOtpDto) {
+    const phone = this.normalizePhone(payload.phone);
+    const cacheKey = this.whatsappOtpCacheKey(phone);
+    const cachedOtp = await this.cacheService.get<string>(cacheKey);
+
+    if (!cachedOtp) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'OTP is expired. Please request a new one');
+    }
+    if (String(cachedOtp) !== String(payload.otp)) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'Invalid OTP code');
+    }
+
+    await this.cacheService.deleteByPattern(cacheKey);
+
+    let user = await this.findUserByPhone(phone);
+    let isNewUser = false;
+
+    if (!user) {
+      isNewUser = true;
+      const digits = phone.replace(/\D/g, '');
+      user = await this.userModel.create({
+        name: `User ${digits.slice(-4)}`,
+        email: `whatsapp.${digits}@sendit.app`,
+        password: `whatsapp_${randomBytes(16).toString('hex')}`,
+        contact: phone,
+        role: USER_ROLES.TRAVELER,
+        verified: true,
+        is_phone_number_verified: true,
+        phone_number_verification_date: new Date(),
+      });
+
+      await this.snsService.publish('wallet.created', user._id.toString(), { isFifo: true });
+      await this.snsService.publish<CreateAuditLogsDto>('audit.create', {
+        action: 'New User Registered via WhatsApp',
+        user: user._id,
+        old_value: '',
+        new_value: '',
+        reason: '',
+      });
+    } else {
+      if (user.status === 'delete') {
+        throw new ApiError(HttpStatus.FORBIDDEN, 'This account has been deactivated');
+      }
+
+      await this.userModel.findByIdAndUpdate(user._id, {
+        verified: true,
+        is_phone_number_verified: true,
+        phone_number_verification_date: new Date(),
+        contact: user.contact || phone,
+      });
+    }
+
+    if (payload.device_info) {
+      await this.snsService.publish<CreateDeviceDto>('device.create', {
+        ...payload.device_info,
+        user: user._id.toString(),
+      });
+    }
+
+    if (payload.fcm_token) {
+      await this.userModel.findByIdAndUpdate(user._id, {
+        $addToSet: {
+          fcm_tokens: payload.fcm_token,
+        },
+      });
+    }
+
+    const accessToken = this.jwtService.sign({
+      id: user._id.toString(),
+      role: user.role,
+      email: user.email,
+      deviceId: payload.device_info?.device_id ?? null,
+    });
+
+    return sendResponse({
+      statusCode: HttpStatus.OK,
+      message: isNewUser ? 'Registration successful' : 'Login successful',
+      data: {
+        accessToken,
+        role: user.role,
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          contact: user.contact || phone,
+          role: user.role,
+          image: user.image ?? null,
+          verified: true,
+        },
+      },
+      success: true,
+    });
+  }
+
+  private normalizePhone(phone: string): string {
+    return `+${phone.replace(/\D/g, '')}`;
+  }
+
+  private whatsappOtpCacheKey(phone: string): string {
+    return `whatsapp-otp:${phone}`;
+  }
+
+  private async findUserByPhone(phone: string): Promise<UserDocument | null> {
+    const digits = phone.replace(/\D/g, '');
+    return this.userModel.findOne({
+      $or: [
+        { contact: phone },
+        { contact: digits },
+        { contact: `+${digits}` },
+      ],
+    });
+  }
 
 }

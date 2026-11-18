@@ -68,7 +68,7 @@ export class Trip {
   @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'StopDetails' }], default: [] })
   stops: Types.ObjectId[];
 
-  @Prop({ type: String, enum: CARRY_TYPE, default: null })
+  @Prop({ type: String, default: null })
   carry_type: CARRY_TYPE;
 
   @Prop({

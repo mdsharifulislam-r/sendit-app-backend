@@ -8,6 +8,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { User, UserDocument } from "apps/root/src/user/user.entity";
 import { Model } from "mongoose";
 import { Booking } from "./booking.entity";
+import { USER_ROLES } from "utils/enums/user";
 
 
 @Injectable()
@@ -26,10 +27,13 @@ export class BookingSocketHandler {
         @MessageBody() data: LocationUpdateDto,
         @ConnectedSocket() client: Socket,
     ) {
+        console.log(data)
 
         if (!data.user_id || !data.location.latitude || !data.location.longitude) {
             throw new WsException('Invalid data')
         }
+
+
 
         const user = await this.userModel.findById(data.user_id, { name: 1 });
         if (!user) {
@@ -37,8 +41,9 @@ export class BookingSocketHandler {
         }
 
 
-        const bookings = await this.bookingModel.find({ transporter: user._id, status: BOOKING_STATUS.CONFIRMED }, { pickup_location: 1, dropoff_location: 1, pickup_address: 1, dropoff_address: 1, _id: 1, id: 1 }).lean()
 
+
+        const bookings = await this.bookingModel.find({ transporter: user._id, status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.CONFIRMED] } }, { pickup_location: 1, dropoff_location: 1, pickup_address: 1, dropoff_address: 1, _id: 1, id: 1 }).lean()
         for (let booking of bookings) {
             this.socketService.emit(`booking_location_update::${booking._id}`, {
                 booking, transpoter: {

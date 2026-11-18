@@ -53,7 +53,7 @@ export class WalletHandler {
                 payment_status: TRANSACTION_PAYMENT_TYPE.DEBIT,
                 type: TRANSACTION_TYPE.DEPOSIT,
                 status: TRANSACTION_STATUS.COMPLETED
-            });
+            }, { isFifo: true });
 
             this.snsService.publish<CreateAuditLogsDto>('audit.create', {
                 action: 'Wallet Diposit',
@@ -111,7 +111,7 @@ export class WalletHandler {
                 bookingId: data._id,
                 transporterId: data.user
 
-            });
+            }, { isFifo: true });
 
             await this.cacheService.deleteByPattern(`wallet:${userId}`);
 

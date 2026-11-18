@@ -11,6 +11,7 @@ import { getCorsOrigin } from 'utils/config/cors';
 import { configureAlbPathPrefix, configureGlobalPrefix } from 'utils/config/app-prefix';
 import { UserService } from './user/user.service';
 import { loadAwsSecrets } from 'utils/helper-modules/secret-manager/load-aws-secrets';
+import { ensureModelsLoaded } from 'utils/helper/faceverificationHelper';
 
 const logger = new Logger('Bootstrap');
 
@@ -69,7 +70,8 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   const host = process.env.IP_ADDRESS || '0.0.0.0';
 
-  await app.listen(port, host, () => {
+  await app.listen(port, host, async () => {
+    ensureModelsLoaded();
     logger.log(`Server running at http://${host}:${port}/api/v1/`);
     logger.log(`Swagger docs at http://${host}:${port}/docs`);
     logger.log(`Environment: ${process.env.NODE_ENV ?? 'development'}`);

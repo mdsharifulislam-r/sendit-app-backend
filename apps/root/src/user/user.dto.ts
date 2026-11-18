@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsUrl,
   IsNotEmpty,
+  IsBooleanString,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType, OmitType } from '@nestjs/swagger';
 import { SOCIAL_PLATFORM, USER_ROLES } from 'utils/enums/user';
@@ -63,12 +64,12 @@ export class UpdateProfileDto {
 
   @ApiPropertyOptional({ example: true, description: 'Face verified' })
   @IsOptional()
-  @IsBoolean()
+  @IsBooleanString()
   is_face_verified?: boolean;
 
   @ApiPropertyOptional({ example: true, description: 'Fingerprint verified' })
   @IsOptional()
-  @IsBoolean()
+  @IsBooleanString()
   is_fingerprint_verified?: boolean;
 
 
@@ -133,6 +134,12 @@ export class SocialLoginDto {
   @IsOptional()
   @Type(() => CreateDeviceDto)
   device_info!: CreateDeviceDto
+
+
+  @ApiPropertyOptional({ example: 'token' })
+  @IsOptional()
+  @IsString()
+  fcm_token?: string
 
 }
 

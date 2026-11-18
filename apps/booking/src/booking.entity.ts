@@ -20,8 +20,8 @@ export class Booking {
   @Prop({ required: true })
   package_content: string;
 
-  @Prop({ type: String, enum: PACKAGE_TYPE, required: true })
-  package_type: PACKAGE_TYPE;
+  @Prop({ type: String, required: true })
+  package_type: PACKAGE_TYPE | string
 
   @Prop({ type: [String], required: true })
   exterior_images: string[];
@@ -95,7 +95,7 @@ export class Booking {
   @Prop({ type: String, enum: BOOKING_STATUS, default: BOOKING_STATUS.PENDING })
   status: BOOKING_STATUS;
 
-  @Prop({ type: String, enum: DELIVERY_SPEED, default: DELIVERY_SPEED.NORMAL })
+  @Prop({ type: String, enum: DELIVERY_SPEED, default: DELIVERY_SPEED.EXPRESS })
   delivery_speed: DELIVERY_SPEED;
 
   @Prop({ type: String, enum: BOOKING_PREFFERENCE, default: BOOKING_PREFFERENCE.DROP_POINT })
