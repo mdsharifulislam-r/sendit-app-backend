@@ -64,9 +64,33 @@ sendit-up
 - `sendit-down` — stop
 - `sendit-logs` — follow logs
 
+## CI/CD (GitHub Actions) — does not change ECS workflows
+
+New workflow: `.github/workflows/ec2-deploy.yml`  
+Existing `.github/workflows/{root,trip,...}.yml` (ECS) are untouched.
+
+On push to `main` / `production` / `dev` (app/utils/Dockerfile changes), or **Actions → CI/CD — EC2 all-in-one → Run workflow**:
+
+1. Builds & pushes all six `shariful1234/sendit-*` images  
+2. SCPs `docker-compose.yml` / `nginx.conf` to `/opt/sendit`  
+3. SSH → `sendit-up` (pull + restart)
+
+### One-time GitHub setup
+
+1. Repo → **Settings → Environments → New environment** → name: `ec2`
+2. Add environment secrets:
+
+| Secret | Value |
+|--------|--------|
+| `DOCKERHUB_TOKEN` | Docker Hub access token |
+| `EC2_HOST` | `3.124.97.90` (or current EIP) |
+| `EC2_SSH_KEY` | Full contents of `sendit-ec2-dev-ec2.pem` |
+
+Optional: `EC2_USER` (`ec2-user`), `DOCKERHUB_USERNAME`
+
 ## Important
 
-- **Does not touch** `infrastructure/terraform` (ECS stack).
+- **Does not touch** `infrastructure/terraform` (ECS stack) or existing ECS workflows.
 - Gateway Nest app is **not** required here; nginx replaces ALB path routing.
 - For production HA, keep using the ECS stack; this is for cheap single-box / staging.
 - Restrict `ssh_cidr` to your IP.
