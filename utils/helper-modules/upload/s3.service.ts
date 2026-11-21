@@ -5,7 +5,6 @@ import {
     S3Client,
 } from '@aws-sdk/client-s3';
 
-import { randomUUID } from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as mime from 'mime-types';

@@ -14,12 +14,15 @@ import {
   ForgetPasswordDto,
   LoginDto,
   VerifyEmailDto,
+  WhatsappSendOtpDto,
+  WhatsappVerifyOtpDto,
 } from './auth.dto';
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { Auth } from 'utils/guards/auth.guard';
 import { SocialLoginDto } from '../user/user.dto';
 import { FileUpload } from 'utils/decorators/file-uploader.decorator';
 import { GetFile } from 'utils/decorators/get-file.decorator';
+import { USER_ROLES } from 'utils/enums/user';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -33,6 +36,24 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials.' })
   login(@Body() payload: LoginDto) {
     return this.authService.login(payload);
+  }
+
+  @Post('whatsapp/send-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send login OTP via Meta WhatsApp Business API' })
+  @ApiResponse({ status: 200, description: 'OTP sent to WhatsApp.' })
+  @ApiResponse({ status: 400, description: 'Invalid phone number.' })
+  sendWhatsappOtp(@Body() payload: WhatsappSendOtpDto) {
+    return this.authService.sendWhatsappOtp(payload);
+  }
+
+  @Post('whatsapp/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify WhatsApp OTP and login or register' })
+  @ApiResponse({ status: 200, description: 'Returns JWT access token and user.' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP.' })
+  verifyWhatsappOtp(@Body() payload: WhatsappVerifyOtpDto) {
+    return this.authService.verifyWhatsappOtp(payload);
   }
 
   @Post('social-signin')
@@ -109,7 +130,6 @@ export class AuthController {
   }
 
   @Post('verify-face')
-  @Auth()
   @HttpCode(HttpStatus.OK)
   @FileUpload({
     fields: [
@@ -119,12 +139,10 @@ export class AuthController {
       }
     ]
   })
-  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Verify face (authenticated users only)' })
   @ApiResponse({ status: 200, description: 'Face verified successfully.' })
   verifyFace(
     @Body() payload: FaceRegistrationDto,
-    @CurrentUser() user: any,
     @GetFile('image') image: string[]
   ) {
     if (typeof payload.deviceInfo == "string") {

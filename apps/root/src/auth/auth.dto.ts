@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, Max, Min, MinLength } from 'class-validator';
 import { CreateDeviceDto } from '../device/device.dto';
 import { Type } from 'class-transformer';
 
@@ -41,6 +41,11 @@ export class LoginDto {
   @IsOptional()
   @Type(() => CreateDeviceDto)
   deviceInfo?: CreateDeviceDto
+
+  @ApiProperty({ example: 'token' })
+  @IsOptional()
+  @IsString()
+  fcm_token?: string
 }
 
 export class AuthResetPasswordDto {
@@ -89,4 +94,45 @@ export class FaceRegistrationDto {
   @ApiProperty()
   @IsOptional()
   deviceInfo: CreateDeviceDto
+
+  @ApiProperty({ example: 'token' })
+  @IsOptional()
+  @IsString()
+  fcm_token?: string
+}
+
+export class WhatsappSendOtpDto {
+  @ApiProperty({ example: '+8801234567890' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\+?[1-9]\d{7,14}$/, {
+    message: 'Phone must be a valid international number, e.g. +8801234567890',
+  })
+  phone: string;
+}
+
+export class WhatsappVerifyOtpDto {
+  @ApiProperty({ example: '+8801234567890' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\+?[1-9]\d{7,14}$/, {
+    message: 'Phone must be a valid international number, e.g. +8801234567890',
+  })
+  phone: string;
+
+  @ApiProperty({ example: '1234', description: '4-digit OTP sent on WhatsApp' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{4,6}$/, { message: 'OTP must be 4 to 6 digits' })
+  otp: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => CreateDeviceDto)
+  device_info?: CreateDeviceDto;
+
+  @ApiPropertyOptional({ example: 'fcm-token' })
+  @IsOptional()
+  @IsString()
+  fcm_token?: string;
 }

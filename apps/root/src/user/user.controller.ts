@@ -60,6 +60,7 @@ export class UserController {
     @Body() payload: UpdateProfileDto,
     @GetFile('image') image: string[] | null,
   ) {
+    console.log(image, payload, user.id)
     return this.userService.updateProfile(user.id, payload, image?.[0] ?? undefined);
   }
 
@@ -80,9 +81,17 @@ export class UserController {
   completeKycVerification(
     @CurrentUser() user: any,
     @Body() payload: CompleteKycVerificationDto,
-    @GetFile() files: Record<string, string>,
+    @GetFile("passport_image") passport_image: string[] | null,
+    @GetFile("driving_license_image") driving_license_image: string[] | null,
+    @GetFile("id_card_front_image") id_card_front_image: string[] | null,
+    @GetFile("id_card_back_image") id_card_back_image: string[] | null,
   ) {
-    return this.userService.completeKycVerification(user.id, files as any as CompleteKycVerificationDto);
+    payload.passport_image = passport_image?.[0] as any
+    payload.driving_license_image = driving_license_image?.[0] as any
+    payload.id_card_front_image = id_card_front_image?.[0] as any
+    payload.id_card_back_image = id_card_back_image?.[0] as any
+
+    return this.userService.completeKycVerification(user.id, payload);
   }
 
   @Post('change-email-address')

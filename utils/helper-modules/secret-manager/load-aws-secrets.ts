@@ -62,7 +62,9 @@ export async function loadAwsSecrets(): Promise<void> {
       'AWS_SESSION_TOKEN',
       'AWS_BUCKET_NAME',
       'SNS_TOPIC_ARN',
+      'SNS_FIFO_TOPIC_ARN',
       'SQS_QUEUE_URL',
+      'SQS_FIFO_QUEUE_URL',
       'SERVICE_NAME',
       'NODE_ENV',
       'DB_URI',
@@ -80,7 +82,11 @@ export async function loadAwsSecrets(): Promise<void> {
 
     let loaded = 0;
     for (const [key, value] of Object.entries(secretObject)) {
-      if (infrastructureKeys.has(key) || key.endsWith('_SQS_QUEUE_URL')) {
+      if (
+        infrastructureKeys.has(key) ||
+        key.endsWith('_SQS_QUEUE_URL') ||
+        key.endsWith('_SQS_FIFO_QUEUE_URL')
+      ) {
         continue;
       }
       process.env[key] = value ?? '';

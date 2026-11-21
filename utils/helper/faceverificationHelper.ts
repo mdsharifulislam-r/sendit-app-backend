@@ -4,6 +4,7 @@ import * as path from 'path';
 
 import sharp from 'sharp';
 import { ApiError } from 'utils/errors/api-error';
+import * as fs from 'fs';
 
 
 // Patch face-api with node-canvas
@@ -21,7 +22,7 @@ export const loadModels = async () => {
     console.log('✅ Face-api models loaded');
 };
 
-async function ensureModelsLoaded() {
+export async function ensureModelsLoaded() {
     if (modelsLoaded) return;
     if (!modelsLoading) {
         modelsLoading = loadModels().then(() => {
@@ -33,6 +34,9 @@ async function ensureModelsLoaded() {
 
 // Ensure image is supported by canvas
 const ensureSupportedImage = async (imagePath: string) => {
+    if (imagePath.startsWith('http')) {
+        return imagePath;
+    }
     const ext = path.extname(imagePath).toLowerCase();
     if (!['.jpg', '.jpeg', '.png', '.bmp', '.gif'].includes(ext)) {
         // Convert to JPEG using sharp
@@ -46,7 +50,8 @@ const ensureSupportedImage = async (imagePath: string) => {
 // Detect face and return descriptor
 export const detectFace = async (imagePath: string) => {
     try {
-        await ensureModelsLoaded();
+        imagePath = path.join(process.cwd(), "uploads", imagePath);
+        console.log("imagePath", imagePath)
         const supportedPath = await ensureSupportedImage(imagePath);
         const img = (await loadImage(supportedPath)) as unknown as HTMLImageElement;
 
@@ -56,9 +61,10 @@ export const detectFace = async (imagePath: string) => {
             .withFaceDescriptor();
 
         if (!detection) throw new ApiError(400, 'No face detected in the image');
-
+        fs.unlinkSync(imagePath);
         return detection.descriptor;
     } catch (err: any) {
+        console.log(err)
         throw new ApiError(400, err.message);
     }
 };
@@ -66,14 +72,12 @@ export const detectFace = async (imagePath: string) => {
 // Verify array of images
 export const verifyFace = async (imagePath: string, existingDescriptor: any): Promise<boolean> => {
 
-
     const descriptor = await detectFace(imagePath);
 
     // Compare all descriptors
     const threshold = 0.6;
     const result = await faceapi
         .euclideanDistance(descriptor, objectToFloat32Array(existingDescriptor))
-
     if (result > threshold) {
         throw new ApiError(400, 'Face not matched');
     }

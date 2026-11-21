@@ -9,7 +9,6 @@ import sendResponse from 'utils/helper/sendResponse';
 import { CacheService } from 'utils/helper-modules/cache/cache.service';
 import { WalletHandler } from './wallet.handler';
 import { User, UserDocument } from 'apps/root/src/user/user.entity';
-import { Stripe } from 'stripe/cjs/stripe.core';
 import { SnsService } from 'utils/helper-modules/sns/sns.service';
 import { CreateTransactionDto } from '../transaction/transaction.dto';
 import { Transaction, TRANSACTION_PAYMENT_TYPE, TRANSACTION_STATUS, TRANSACTION_TYPE, TransactionDocument } from '../transaction/transaction.entity';
@@ -174,7 +173,7 @@ export class WalletService {
 
     }
 
-    async verifyConnectedAccount(payload: Stripe.Account) {
+    async verifyConnectedAccount(payload: { id: string; charges_enabled?: boolean }) {
         const mongoSession = await this.connection.startSession();
         mongoSession.startTransaction();
         try {
@@ -206,11 +205,15 @@ export class WalletService {
             throw new ApiError(HttpStatus.NOT_FOUND, 'Wallet not found');
         }
 
+        console.log(amount)
+
         const pricingRules = await this.pricingRulesModel.findOne();
         const fee = pricingRules?.withdraw_fee || 0
-        amount = amount - fee
+        console.log(fee)
+        amount = amount - Math.round(amount * (fee / 100))
+        console.log(pricingRules)
         if (amount < (pricingRules?.min_withdraw_amount || 0)) {
-            throw new ApiError(HttpStatus.BAD_REQUEST, 'Minimum withdrawal amount is ' + (pricingRules?.min_withdraw_amount || 0) / 100);
+            throw new ApiError(HttpStatus.BAD_REQUEST, 'Minimum withdrawal amount is ' + (pricingRules?.min_withdraw_amount || 0));
         }
 
         amount = amount * 100
@@ -226,6 +229,7 @@ export class WalletService {
         const session = await this.connection.startSession();
         session.startTransaction();
         try {
+            console.log(amount)
             await this.walletModel.updateOne({ _id: wallet._id }, { balance: wallet.balance - amount }).session(session);
             await this.stripeService.getClient().transfers.create({
                 amount: amount,
@@ -242,7 +246,7 @@ export class WalletService {
                 payment_status: TRANSACTION_PAYMENT_TYPE.DEBIT,
                 type: TRANSACTION_TYPE.WITHDRAW,
                 status: TRANSACTION_STATUS.COMPLETED
-            } as CreateTransactionDto)
+            } as CreateTransactionDto, { isFifo: true })
 
             this.snsService.publish('notification.send', {
                 title: `Withdrawal Successful`,

@@ -27,6 +27,7 @@ export enum TRANSPORT_TYPE {
     BUS = "Bus",
     TRUCK = "Truck",
     BOAT = "Boat",
+    EMPTY = ""
 }
 
 export class StopDetails {
@@ -206,11 +207,11 @@ export class CreateTripDto {
     @ApiPropertyOptional({
         description: "Carry Type is required",
         example: "Document",
-        enum: CARRY_TYPE
+        // enum: CARRY_TYPE
     })
     @IsOptional()
-    @IsEnum(CARRY_TYPE)
-    carry_type: CARRY_TYPE
+    // @IsEnum(CARRY_TYPE)
+    carry_type: string
 
     @ApiPropertyOptional({
         description: "Pricing Details is required",
@@ -301,6 +302,190 @@ export class CreateTripDto {
 
 }
 
+
+export class UpdateTripDto {
+
+
+    @ApiProperty({
+        description: "Departure Address is required",
+        example: "123 Main St",
+    })
+    @IsOptional()
+    @IsString()
+    departure_address: string
+
+
+    @ApiProperty({
+        description: "Departure Location is required",
+        example: "[longitude, latitude]",
+    })
+    @IsOptional()
+    @IsArray()
+    departure_location: number[]
+
+    // @ApiProperty({
+    //     description: "Departure Date is required",
+    //     example: "2022-01-01",
+    // })
+    // @IsOptional()
+    // @IsDateString()
+    // @Refine({
+    //     validator: (value: string) => {
+    //         if (new Date(value) < new Date()) {
+    //             return false
+    //         }
+    //         return true
+    //     },
+    //     message: "Departure Date must be in the future"
+    // })
+    // departure_date: Date
+
+    @ApiProperty({
+        description: "Return Address is optional",
+        example: "456 Oak St",
+    })
+    @IsOptional()
+    @IsString()
+    return_address: string
+
+    @ApiProperty({
+        description: "Return Location is optional",
+        example: "[longitude, latitude]",
+    })
+    @IsOptional()
+    return_location: number[]
+
+    // @ApiProperty({
+    //     description: "Return Date is optional",
+    //     example: "2022-01-01",
+    // })
+    // @IsOptional()
+    // @IsDateString()
+    // @Refine({
+    //     validator: (value: string, context: any) => {
+    //         if (new Date(value) < new Date(context.departure_date)) {
+    //             return false
+    //         }
+    //         return true
+    //     },
+    //     message: 'Return Date must be greater than Departure Date'
+    // })
+    // @IsOptional()
+    // return_date: Date
+
+    @ApiPropertyOptional({
+        description: "Stop Details is required",
+        example: `[
+            {
+                address: "123 Main St",
+                location: [longitude, latitude],
+                date: "2022-01-01"
+            }
+        ]`
+    })
+    @IsArray()
+    @IsOptional()
+    stops: StopDetails[]
+
+    @ApiPropertyOptional({
+        description: "Carry Type is required",
+        example: "Document",
+        // enum: CARRY_TYPE
+    })
+    @IsOptional()
+    // @IsEnum(CARRY_TYPE)
+    carry_type: string
+
+    @ApiPropertyOptional({
+        description: "Pricing Details is required",
+        example: {
+            "currency": "BDT",
+            "price_per_kg": 333,
+            "price_per_document": 444
+        }
+    })
+    @IsOptional()
+    pricing_details: PricingDetails
+
+    @ApiPropertyOptional({
+        description: "Transport Type is required",
+        example: "Car",
+        enum: TRANSPORT_TYPE
+    })
+    @IsOptional()
+    @IsEnum(TRANSPORT_TYPE)
+    transport_type: TRANSPORT_TYPE
+
+    @ApiPropertyOptional({
+        description: "Vehicle Details is required",
+        example: {
+            "type": "Car",
+            "number": "123456",
+            "name": "Toyota",
+        }
+    })
+    @IsOptional()
+    vehicle_details: VehicleDetails
+
+    @ApiPropertyOptional({
+        description: "Ticket Image is required",
+        example: "ticket_image.jpg",
+        type: 'string',
+        format: 'binary',
+    })
+    @IsOptional()
+    @IsString()
+    ticket_image: string
+
+    @ApiPropertyOptional({
+        description: "Trip Rules is required",
+        example: [
+            {
+                "title": "Trip Rule 1",
+                "content": "Trip Rule 1 Content"
+            }
+        ]
+    })
+    @IsOptional()
+    trip_rules: TripRules[]
+
+    @ApiPropertyOptional({
+        description: "Available Space is required",
+        example: "100",
+    })
+
+
+    @IsNumber()
+    @IsOptional()
+    available_space_kg: number
+
+    @ApiPropertyOptional({
+        description: "Trip Description is required",
+        example: "Trip Description",
+    })
+    @IsOptional()
+    @IsString()
+    trip_description: string
+
+    @ApiPropertyOptional({
+        description: "What We Accept is required",
+        example: "What We Accept",
+    })
+    @IsOptional()
+    @IsString()
+    what_we_accept: string
+
+    @ApiPropertyOptional({
+        description: "Status is required",
+        example: "Pending",
+    })
+    @IsOptional()
+    @IsEnum(TRIP_STATUS)
+    status: TRIP_STATUS
+
+
+}
+
 export class TempTripDto {
     @ApiProperty({
         description: "Trip Data is required",
@@ -343,7 +528,7 @@ export class TempTripDto {
     @IsString()
     @Refine({
         validator: (value) => {
-            const data = plainToInstance(CreateTripDto, JSON.parse(value))
+            const data = plainToInstance(UpdateTripDto, JSON.parse(value))
             const errors = validateSync(data)
             if (errors.length) {
                 throw new ApiError(HttpStatus.BAD_REQUEST, errors[0]?.constraints ? Object.values(errors[0].constraints)[0] : 'Invalid JSON')

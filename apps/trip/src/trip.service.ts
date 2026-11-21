@@ -157,7 +157,7 @@ export class TripService {
     const tripQuery = new QueryBuilder(this.tripModel.find({ user: userId }), query)
       .filter()
       .paginate()
-      .sort('-created_at')
+      .sort('-createdAt')
 
     const [data, pagination] = await Promise.all([
       tripQuery.modelQuery.populate([
@@ -535,7 +535,7 @@ export class TripService {
       throw new ApiError(HttpStatus.NOT_FOUND, 'Trip not found')
     }
 
-    if (payload.stops.length > 0) {
+    if (payload?.stops?.length > 0) {
       await this.stopDetailsModel.deleteMany({ trip: id })
       const stops = await Promise.all(
         payload.stops.map(async (stop: any) => {

@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { TransportAgreementService } from './transport-agreement.service';
 import { CreateTransportAgreementDto } from './transport-agreement.dto';
 import { CurrentUser } from 'utils/decorators/user.decorator';
@@ -26,5 +26,11 @@ export class TransportAgreementController {
       payload.singnature_image = singnature_image[0]
     }
     return this.transportAgreementService.signAgreement(payload, user.id)
+  }
+
+  @Get()
+  @Auth()
+  getAgreement(@CurrentUser() user: any) {
+    return this.transportAgreementService.getAgreement(user.id)
   }
 }

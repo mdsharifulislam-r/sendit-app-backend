@@ -108,7 +108,17 @@ export class ChatService {
         if (!data) {
             throw new ApiError(HttpStatus.NOT_FOUND, 'Chat not found')
         }
-        await this.chatModel.findOneAndUpdate({ _id: chatId }, { $addToSet: { archive_from: user } })
+        const alreadyExsit = data.archive_from?.includes(new Types.ObjectId(user))
+        if (alreadyExsit) {
+            await this.chatModel.findOneAndUpdate({ _id: chatId }, { $pull: { archive_from: new Types.ObjectId(user) } })
+            return sendResponse({
+                message: 'Chat unarchived successfully',
+                success: true,
+                statusCode: 200,
+                data
+            })
+        }
+        await this.chatModel.findOneAndUpdate({ _id: chatId }, data.archive_from?.length ? { $addToSet: { archive_from: user } } : { archive_from: [user] })
         return sendResponse({
             message: 'Chat archived successfully',
             success: true,

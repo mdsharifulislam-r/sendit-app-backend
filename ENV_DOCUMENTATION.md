@@ -106,6 +106,25 @@ EMAIL_FROM=noreply@localhost
 
 ---
 
+## WhatsApp Cloud API
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `WHATSAPP_PHONE_NUMBER_ID` | Yes | — | Phone Number ID from the WhatsApp Cloud API setup (not the WABA ID) |
+| `WHATSAPP_ACCESS_TOKEN` | Yes | — | Valid Meta access token with WhatsApp messaging permissions |
+| `WHATSAPP_API_VERSION` | No | `v21.0` | Meta Graph API version |
+| `WHATSAPP_OTP_TEMPLATE_NAME` | No | `sendit_otp` | Approved WhatsApp template name |
+| `WHATSAPP_OTP_TEMPLATE_LANGUAGE` | No | `en` | Language code configured for that template |
+| `WHATSAPP_OTP_BUTTON_TYPE` | No | `none` | OTP template button type: `none`, `url`, or `copy_code` |
+| `WHATSAPP_OTP_USE_TEXT` | No | `false` | Set to `true` to send text instead of a template |
+
+Store the access token in a secret manager in production, not in source control or chat.
+If Meta returns OAuth error 190, replace the token with a valid, unexpired token that
+has access to the WhatsApp Business Account, then restart or redeploy the service so it
+loads the updated value.
+
+---
+
 ## Super Admin (Seed)
 
 | Variable | Required | Default | Description |

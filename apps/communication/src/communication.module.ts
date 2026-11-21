@@ -18,6 +18,7 @@ import { AuthModule } from 'apps/root/src/auth/auth.module';
 import { MessageModule } from './message/message.module';
 import { ReportModule } from './report/report.module';
 import { HealthModule } from 'utils/health/health.module';
+import { FirebaseModule } from './firebase/firebase.module';
 
 @Module({
   imports: [
@@ -45,7 +46,8 @@ import { HealthModule } from 'utils/health/health.module';
     ChatModule,
     MessageModule,
     ReportModule,
-    AuthModule
+    AuthModule,
+    FirebaseModule
   ],
   controllers: [CommunicationController],
   providers: [CommunicationService],

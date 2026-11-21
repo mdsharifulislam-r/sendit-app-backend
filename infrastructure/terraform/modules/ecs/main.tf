@@ -22,7 +22,15 @@ variable "db_master_password"   { sensitive = true }
 variable "redis_endpoint"       {}
 variable "redis_port"           {}
 variable "sns_topic_arn"        {}
+variable "sns_fifo_topic_arn" {
+  type    = string
+  default = ""
+}
 variable "sqs_queue_urls"      { type = map(string) }
+variable "sqs_fifo_queue_urls" {
+  type    = map(string)
+  default = {}
+}
 variable "enable_autoscaling" {
   description = "Enable ECS auto scaling (requires application-autoscaling permissions)"
   type        = bool
@@ -116,6 +124,7 @@ locals {
     { name = "AWS_SECRET_NAME",    value = var.secret_name },
     { name = "AWS_BUCKET_NAME",    value = var.s3_bucket_name },
     { name = "SNS_TOPIC_ARN",      value = var.sns_topic_arn },
+    { name = "SNS_FIFO_TOPIC_ARN", value = var.sns_fifo_topic_arn },
     { name = "REDIS_HOST",         value = var.redis_endpoint },
     { name = "REDIS_PORT",         value = tostring(var.redis_port) },
     { name = "REDIS_TLS",          value = "true" },
@@ -171,6 +180,17 @@ resource "aws_ecs_task_definition" "services" {
         [
           for svc, url in var.sqs_queue_urls : {
             name  = "${upper(svc)}_SQS_QUEUE_URL"
+            value = url
+          }
+        ],
+        # Own FIFO queue (payment, etc.) — consumers poll this
+        lookup(var.sqs_fifo_queue_urls, each.key, null) != null ? [
+          { name = "SQS_FIFO_QUEUE_URL", value = var.sqs_fifo_queue_urls[each.key] },
+        ] : [],
+        # All FIFO queue URLs so any service can publish isFifo events to the owner
+        [
+          for svc, url in var.sqs_fifo_queue_urls : {
+            name  = "${upper(svc)}_SQS_FIFO_QUEUE_URL"
             value = url
           }
         ],

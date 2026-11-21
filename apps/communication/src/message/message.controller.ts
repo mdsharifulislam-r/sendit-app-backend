@@ -5,6 +5,7 @@ import { FileUpload } from 'utils/decorators/file-uploader.decorator';
 import { CreateMessageDto } from './message.dto';
 import { CurrentUser } from 'utils/decorators/user.decorator';
 import { GetFile } from 'utils/decorators/get-file.decorator';
+import { ApiConsumes, ApiOperation } from '@nestjs/swagger';
 
 @Controller('message')
 export class MessageController {
@@ -25,6 +26,11 @@ export class MessageController {
 
     ]
   })
+  @ApiOperation({
+    description: "Send a message",
+    summary: "Send a message"
+  })
+  @ApiConsumes('multipart/form-data')
   create(@Body() createMessageDto: CreateMessageDto, @CurrentUser() user: any, @GetFile('images') images: string[], @GetFile('documents') documents: string[]) {
     const payload = {
       ...createMessageDto,

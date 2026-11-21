@@ -48,4 +48,17 @@ export class TransportAgreementService {
         await this.transportAgreementModel.deleteMany({ user: userid, validity: AGREEMENT_VALIDITY.VALID_FOR_ONE_TRIP })
         return true
     }
+
+    async getAgreement(userId: string) {
+        const agreement = await this.transportAgreementModel.findOne({ user: userId, valid_until: { $gte: new Date() } })
+        if (!agreement) {
+            throw new ApiError(404, 'No valid agreement found')
+        }
+        return sendResponse({
+            message: 'Agreement found successfully',
+            statusCode: HttpStatus.OK,
+            data: agreement,
+            success: true,
+        })
+    }
 }

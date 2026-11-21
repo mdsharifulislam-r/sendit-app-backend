@@ -48,4 +48,13 @@ export const config = {
     url: process.env.KAFKA_URL,
     groupId: process.env.KAFKA_GROUP_ID || 'nestjs-consumer-group',
   },
+
+  whatsapp: {
+    accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    apiVersion: process.env.WHATSAPP_API_VERSION || 'v21.0',
+    templateName: process.env.WHATSAPP_OTP_TEMPLATE_NAME || 'sendit_otp',
+    templateLanguage: process.env.WHATSAPP_OTP_TEMPLATE_LANGUAGE || 'en',
+    buttonType: process.env.WHATSAPP_OTP_BUTTON_TYPE || 'none',
+  },
 };

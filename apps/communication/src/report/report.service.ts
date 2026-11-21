@@ -270,7 +270,7 @@ export class ReportService {
         await this.snsService.publish<{ userId: string, amount: number }>('add.balance', {
             userId: payload.user_id,
             amount: payload.amount,
-        })
+        }, { isFifo: true })
 
         await this.reportModel.findByIdAndUpdate(report._id, {
             is_refunded: true,
